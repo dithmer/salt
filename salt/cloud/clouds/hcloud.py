@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-from hcloud import Client
 import functools
 import logging
+
+from hcloud import Client
+
+import salt.config as config
 
 log = logging.getLogger(__name__)
 
