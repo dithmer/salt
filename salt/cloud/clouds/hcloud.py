@@ -27,13 +27,13 @@ def hcloud_call(func):
         if hcloud_client is None:
             hcloud_client = Client(token=api_key)
 
-        return func(args, kwargs)
+        return func(*args, **kwargs)
 
     return wrapped_hcloud_call
 
 
 def __virtual__():
-    if get_configured_provider() is not True:
+    if get_configured_provider() is False:
         return False
 
     return __virtualname__
@@ -44,7 +44,7 @@ def get_configured_provider():
     Return the first configured instance.
     '''
     return config.is_provider_configured(
-        __opts__, __active_provider_name__ or __virtualname__, ('api_key'))
+        __opts__, __active_provider_name__ or __virtualname__, ('api_key', ))
 
 
 @hcloud_call
