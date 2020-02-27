@@ -67,7 +67,7 @@ def get_configured_provider():
     Return the first configured instance.
     '''
     return config.is_provider_configured(
-        __opts__, __active_provider_name__ or __virtualname__, ('api_key'))
+        __opts__, __active_provider_name__ or __virtualname__, ('api_key', 'ssh_keyfile', 'ssh_keyfile_public', ))
 
 
 @refresh_hcloud_client
@@ -86,13 +86,13 @@ def create(vm_):
         sock_dir=__opts__['sock_dir'],
         transport=__opts__['transport'])
 
-    ssh_keyfile_public = config.get_cloud_config_value('ssh_keyfile',
+    ssh_keyfile = config.get_cloud_config_value('ssh_keyfile',
                                                        vm_,
                                                        __opts__,
                                                        default=None)
 
-    # ssh_keyfile_public = config.get_cloud_config_value(
-    #     'ssh_keyfile_public', vm_, __opts__, default=f'{ssh_keyfile}.pub')
+    ssh_keyfile_public = config.get_cloud_config_value(
+        'ssh_keyfile_public', vm_, __opts__, default=None)
 
     try:
         with open(ssh_keyfile_public) as file:
