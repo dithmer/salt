@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, print_function, unicode_literals
 import functools
 import logging
 import time
@@ -8,9 +9,9 @@ from hcloud import Client
 from hcloud.hcloud import APIException
 from hcloud.server_types.domain import ServerType
 from hcloud.images.domain import Image
-from hcloud.ssh_keys.domain import SSHKey
 
 import salt.config as config
+import salt.utils.files
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def get_configured_provider():
     Return the first configured instance.
     '''
     return config.is_provider_configured(
-        __opts__, __active_provider_name__ or __virtualname__, ('api_key', 'ssh_keyfile', 'ssh_keyfile_public', ))
+        __opts__, __active_provider_name__ or __virtualname__, ('api_key', ))
 
 
 @refresh_hcloud_client
@@ -87,15 +88,23 @@ def create(vm_):
         transport=__opts__['transport'])
 
     ssh_keyfile = config.get_cloud_config_value('ssh_keyfile',
+                                                vm_,
+                                                __opts__,
+                                                default=None)
+    if ssh_keyfile is None:
+        log.error('Property ssh_keyfile must be set.')
+        return False
+
+    ssh_keyfile_public = config.get_cloud_config_value('ssh_keyfile_public',
                                                        vm_,
                                                        __opts__,
                                                        default=None)
-
-    ssh_keyfile_public = config.get_cloud_config_value(
-        'ssh_keyfile_public', vm_, __opts__, default=None)
+    if ssh_keyfile_public is None:
+        log.error('Property ssh_keyfile_public must be set')
+        return False
 
     try:
-        with open(ssh_keyfile_public) as file:
+        with salt.utils.files.fopen(ssh_keyfile_public) as file:
             local_ssh_public_key = file.read()
     except OSError:
         log.error(f'Could not read ssh keyfile {ssh_keyfile_public}')
