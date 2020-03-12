@@ -50,16 +50,58 @@ def get_configured_provider():
     Return the first configured instance.
     '''
     return config.is_provider_configured(
-        __opts__, __active_provider_name__ or __virtualname__, ('api_key', ))
+        __opts__, __active_provider_name__ or __virtualname__, (
+            'api_key',
+            'ssh_keyfile_public',
+        ))
 
+@refresh_hcloud_client
+def avail_images():
+    pass
+
+@refresh_hcloud_client
+def avail_sizes():
+    sizes = hcloud_client.server_types.get_all()
+
+    print('Available Sizes:')
+    print('--------------------------------------------------------------------------------')
+
+    for size in sizes:
+        if not size.deprecated:
+            print(f'{size.description}')
+            print(f'Name: {size.name}')
+            print(f'Amount of cores: {size.cores} ({size.cpu_type})')
+            print(f'Memory in GB: {size.memory}')
+            print(f'Disk Space in GB: {size.disk} ({size.storage_type})')
+
+            print(f'Prices:')
+            for price in size.prices:
+                print(f'\tLocation: {price["location"]}')
+                print(f'\t\tPrice hourly: {float(price["price_hourly"]["net"]):.5f} (net)')
+                print(f'\t\tPrice hourly: {float(price["price_hourly"]["gross"]):.5f} (gross)')
+                print(f'\t\tPrice monthly: {float(price["price_monthly"]["net"]):.2f} (net)')
+                print(f'\t\tPrice monthly: {float(price["price_monthly"]["gross"]):.2f} (gross)')
+
+        print()
+    pass
 
 @refresh_hcloud_client
 def create(vm_):
     data = {}
 
     name = vm_['name']
-    log.info(f'Sending request to create a new hetzner-cloud vm.')
+    try:
+        # Check for required profile parameters before sending any API calls.
+        if vm_['profile'] and config.is_profile_configured(
+                __opts__,
+                __active_provider_name__ or 'hcloud',
+                vm_['profile'],
+                vm_=vm_) is False:
+            return False
+    except AttributeError:
+        pass
 
+    log.info(f'Sending request to create a new hetzner-cloud vm.')
     __utils__['cloud.fire_event'](
         'event',
         'starting create',
@@ -97,8 +139,8 @@ def create(vm_):
     try:
         created_server_response = hcloud_client.servers.create(
             name,
-            server_type=ServerType(name="cx11"),
-            image=Image(id=5924233),
+            server_type=ServerType(name=vm_['size']),
+            image=Image(name=vm_['image']),
             ssh_keys=[hcloud_ssh_public_key])
     except APIException as e:
         log.error(e.message)
@@ -127,7 +169,6 @@ def create(vm_):
             time.sleep(1)
 
     vm_['ssh_host'] = server.public_net.ipv4.ip
-    vm_['password'] = created_server_response.root_password
 
     __utils__['cloud.fire_event'](
         'event',
