@@ -12,6 +12,9 @@ from hcloud.images.domain import Image
 
 import salt.config as config
 import salt.utils.files
+from salt.exceptions import (
+    SaltCloudException
+)
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +61,12 @@ def get_configured_provider():
 
 
 @refresh_hcloud_client
-def avail_images():
+def avail_images(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The avail_images function must be called with -f or --function.'
+        )
+
     images = hcloud_client.images.get_all()
 
     formatted_images = {}
@@ -84,7 +92,12 @@ def _format_image(image: Image):
 
 
 @refresh_hcloud_client
-def avail_sizes():
+def avail_sizes(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The avail_sizes function must be called with -f or --function.'
+        )
+
     server_types = hcloud_client.server_types.get_all()
 
     formatted_server_types = {}
