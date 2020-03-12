@@ -189,7 +189,7 @@ def avail_images(call=None):
 
     for image in images:
         if image.status == 'available':
-            formatted_images[image.name] = _format_image(image)
+            formatted_images[image.name] = _hcloud_format_action(image)
 
     return formatted_images
 
