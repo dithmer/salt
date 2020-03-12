@@ -19,6 +19,7 @@ __virtualname__ = 'hcloud'
 
 hcloud_client = None
 
+
 def refresh_hcloud_client(func):
     @functools.wraps(func.__name__)
     def wrapped_hcloud_call(*args, **kwargs):
@@ -55,9 +56,11 @@ def get_configured_provider():
             'ssh_keyfile_public',
         ))
 
+
 @refresh_hcloud_client
 def avail_images():
     pass
+
 
 @refresh_hcloud_client
 def avail_sizes():
@@ -85,6 +88,7 @@ def avail_sizes():
         print()
     pass
 
+
 @refresh_hcloud_client
 def create(vm_):
     data = {}
@@ -93,10 +97,10 @@ def create(vm_):
     try:
         # Check for required profile parameters before sending any API calls.
         if vm_['profile'] and config.is_profile_configured(
-                __opts__,
-                __active_provider_name__ or 'hcloud',
-                vm_['profile'],
-                vm_=vm_) is False:
+            __opts__,
+            __active_provider_name__ or 'hcloud',
+            vm_['profile'],
+            vm_=vm_) is False:
             return False
     except AttributeError:
         pass
