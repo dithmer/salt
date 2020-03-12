@@ -213,7 +213,7 @@ def avail_sizes(call=None):
 
     for server_type in server_types:
         if not server_type.deprecated:
-            formatted_server_types[server_type.name] = _format_server_type(server_type)
+            formatted_server_types[server_type.name] = _hcloud_format_server_type(server_type)
 
     return formatted_server_types
 
@@ -232,29 +232,6 @@ def list_nodes(call=None):
         return False
 
     return servers
-
-
-def _format_server_type(size: ServerType):
-    formatted_server_type = {
-        'id': size.id,
-        'name': size.name,
-        'desc': size.description,
-        'cores': f'{size.cores} ({size.cpu_type})',
-        'memory': size.memory,
-        'disk': f'{size.disk} ({size.storage_type})'
-    }
-
-    for price in size.prices:
-        formatted_server_type[price['location']] = {
-            'hourly': {
-                'net': price['price_hourly']['net'],
-                'gross': price['price_hourly']['gross']},
-            'monthly': {
-                'net': price['price_monthly']['net'],
-                'gross': price['price_monthly']['gross']}
-        }
-
-    return formatted_server_type
 
 
 @refresh_hcloud_client
@@ -390,3 +367,26 @@ def _hcloud_format_image(image: Image):
     }
 
     return formatted_image
+
+
+def _hcloud_format_server_type(size: ServerType):
+    formatted_server_type = {
+        'id': size.id,
+        'name': size.name,
+        'desc': size.description,
+        'cores': f'{size.cores} ({size.cpu_type})',
+        'memory': size.memory,
+        'disk': f'{size.disk} ({size.storage_type})'
+    }
+
+    for price in size.prices:
+        formatted_server_type[price['location']] = {
+            'hourly': {
+                'net': price['price_hourly']['net'],
+                'gross': price['price_hourly']['gross']},
+            'monthly': {
+                'net': price['price_monthly']['net'],
+                'gross': price['price_monthly']['gross']}
+        }
+
+    return formatted_server_type
