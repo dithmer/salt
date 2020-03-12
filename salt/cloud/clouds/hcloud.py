@@ -188,8 +188,14 @@ def avail_images(call=None):
     formatted_images = {}
 
     for image in images:
+        if image.type == 'system':
+            identifier = image.name
+        else:
+            # HCloud backups and snapshots are images without name, so the id is taken as identifier
+            identifier = str(image.id)
+
         if image.status == 'available':
-            formatted_images[image.name] = _hcloud_format_action(image)
+            formatted_images[identifier] = _hcloud_format_image(image)
 
     return formatted_images
 
