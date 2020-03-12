@@ -8,6 +8,7 @@ import pprint
 from hcloud import Client
 from hcloud.hcloud import APIException
 from hcloud.server_types.domain import ServerType
+from hcloud.servers.domain import Server
 from hcloud.images.domain import Image
 from hcloud.actions.domain import Action
 
@@ -157,6 +158,40 @@ def _hcloud_format_action(action: Action):
         salt_dict['error'] = action.error
 
     return salt_dict
+
+
+@refresh_hcloud_client
+def list_nodes(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The list_nodes function must be called with -f or --function.'
+        )
+
+    try:
+        servers = {server.name: _hcloud_format_server(server) for server in hcloud_client.servers.get_all()}
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return servers
+
+
+def _hcloud_format_server(server: Server, full=False):
+    server_salt = {
+        'id': server.id,
+        'image': server.image.name,
+        'size': server.server_type.name,
+        'state': server.status,
+        'private_ips': server.private_net,
+        'public_ips': [server.public_net.ipv4.ip, server.public_net.ipv6.ip] + [floating_ip.ip for floating_ip in
+                                                                                server.public_net.floating_ips],
+    }
+
+    if full:
+        # TODO: Expand attributes for future list_nodes_full method
+        pass
+
+    return server_salt
 
 
 @refresh_hcloud_client
