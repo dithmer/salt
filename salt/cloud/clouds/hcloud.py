@@ -9,6 +9,7 @@ from hcloud import Client
 from hcloud.hcloud import APIException
 from hcloud.server_types.domain import ServerType
 from hcloud.images.domain import Image
+from hcloud.actions.domain import Action
 
 import salt.config as config
 import salt.utils.files
@@ -58,6 +59,105 @@ def get_configured_provider():
             'api_key',
             'ssh_keyfile_public',
         ))
+
+
+@refresh_hcloud_client
+def destroy(name, call=None):
+    '''
+    Destroys a HCloud-VM by name.
+
+    name
+        The name of VM to be be destroyed.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-cloud -d vm_name
+    '''
+    if call == 'function':
+        raise SaltCloudException(
+            'The destroy action must be called with -d, --destroy, '
+            '-a or --action.'
+        )
+
+    __utils__['cloud.fire_event'](
+        'event',
+        'destroying instance',
+        'salt/cloud/{0}/destroying'.format(name),
+        args={'name': name},
+        sock_dir=__opts__['sock_dir'],
+        transport=__opts__['transport']
+    )
+
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+
+        delete_action = hcloud_client.servers.delete(server)
+    except APIException as e:
+        log.error('Could not start the deletion of server {0}: {1}'.format(name, e.message))
+        return
+
+    log.info('Action started at {0}'.format(delete_action.started.strftime('%c')))
+
+    delete_action_dict = _hcloud_format_action(
+        _hcloud_wait_for_action(delete_action)
+    )
+
+    if delete_action_dict['status'] == 'success':
+        log.info('Executed {0} on {1} at {2} successfully.'.format(delete_action_dict['command'],
+                                                                   ', '.join(
+                                                                       ['{0} {1}'.format(resource['type'],
+                                                                                         resource['id'])
+                                                                        for resource in
+                                                                        delete_action_dict['resources']]),
+                                                                   delete_action_dict['finished']))
+    else:
+        log.error('Execution of {0} on {1} at {2} failed: {3} - {4}'.format(delete_action_dict['command'],
+                                                                            ', '.join(['{0} {1}'.format(
+                                                                                resource['type'], resource['id']) for
+                                                                                resource in
+                                                                                delete_action_dict['resources']]),
+                                                                            delete_action_dict['finished'],
+                                                                            delete_action_dict['error']['code'],
+                                                                            delete_action_dict['error']['message']))
+
+    __utils__['cloud.fire_event'](
+        'event',
+        'destroyed instance',
+        'salt/cloud/{0}/destroyed'.format(name),
+        args={'name': name},
+        sock_dir=__opts__['sock_dir'],
+        transport=__opts__['transport']
+    )
+
+    if __opts__.get('update_cachedir', False) is True:
+        __utils__['cloud.delete_minion_cachedir'](name, __active_provider_name__.split(':')[0], __opts__)
+
+    return delete_action_dict
+
+
+def _hcloud_wait_for_action(action: Action):
+    while action.status == 'running':
+        action = hcloud_client.actions.get_by_id(action.id)
+        log.info('Progress: {0}'.format(action.progress))
+        time.sleep(1)
+    return action
+
+
+def _hcloud_format_action(action: Action):
+    salt_dict = {
+        'command': action.command,
+        'resources': action.resources,
+        'status': action.status,
+        'started': action.started.strftime('%c'),
+        'finished': action.finished.strftime('%c')
+    }
+
+    if action.status == 'error':
+        salt_dict['error'] = action.error
+
+    return salt_dict
 
 
 @refresh_hcloud_client
