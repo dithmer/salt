@@ -59,26 +59,62 @@ def get_configured_provider():
 
 @refresh_hcloud_client
 def avail_images():
-    pass
+    images = hcloud_client.images.get_all()
+
+    formatted_images = {}
+
+    for image in images:
+        if image.status == 'available':
+            formatted_images[image.name] = _format_image(image)
+
+    return formatted_images
+
+
+def _format_image(image: Image):
+    formatted_image = {
+        'id': image.id,
+        'type': image.type,
+        'name': image.name,
+        'description': image.description,
+    }
+
+    return formatted_image
 
 
 @refresh_hcloud_client
 def avail_sizes():
-    sizes = hcloud_client.server_types.get_all()
+    server_types = hcloud_client.server_types.get_all()
 
-    ret = {}
+    formatted_server_types = {}
 
-    for size in sizes:
-        if not size.deprecated:
-            ret[size.name] = {'desc': size.description, 'name': size.name, 'cores': f'{size.cores} ({size.cpu_type})',
-                              'memory': size.memory, 'disk': f'{size.disk} ({size.storage_type})'}
+    for server_type in server_types:
+        if not server_type.deprecated:
+            formatted_server_types[server_type.name] = _format_server_type(server_type)
 
-            for price in size.prices:
-                ret[size.name][price['location']] = {
-                    'hourly': {'net': price['price_hourly']['net'], 'gross': price['price_hourly']['gross']},
-                    'monthly': {'net': price['price_monthly']['net'], 'gross': price['price_monthly']['gross']}}
+    return formatted_server_types
 
-    return ret
+
+def _format_server_type(size: ServerType):
+    formatted_server_type = {
+        'id': size.id,
+        'name': size.name,
+        'desc': size.description,
+        'cores': f'{size.cores} ({size.cpu_type})',
+        'memory': size.memory,
+        'disk': f'{size.disk} ({size.storage_type})'
+    }
+
+    for price in size.prices:
+        formatted_server_type[price['location']] = {
+            'hourly': {
+                'net': price['price_hourly']['net'],
+                'gross': price['price_hourly']['gross']},
+            'monthly': {
+                'net': price['price_monthly']['net'],
+                'gross': price['price_monthly']['gross']}
+        }
+
+    return formatted_server_type
 
 
 @refresh_hcloud_client
@@ -131,7 +167,6 @@ def create(vm_):
         log.error(f'Couldn\'t find a matching ssh key in your hcloud project.')
         return False
 
-    # TODO: server_type and image configurable
     try:
         created_server_response = hcloud_client.servers.create(
             name,
