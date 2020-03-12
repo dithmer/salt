@@ -63,216 +63,6 @@ def get_configured_provider():
 
 
 @refresh_hcloud_client
-def destroy(name, call=None):
-    '''
-    Destroys a HCloud-VM by name.
-
-    name
-        The name of VM to be be destroyed.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt-cloud -d vm_name
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The destroy action must be called with -d, --destroy, '
-            '-a or --action.'
-        )
-
-    __utils__['cloud.fire_event'](
-        'event',
-        'destroying instance',
-        'salt/cloud/{0}/destroying'.format(name),
-        args={'name': name},
-        sock_dir=__opts__['sock_dir'],
-        transport=__opts__['transport']
-    )
-
-    try:
-        server = hcloud_client.servers.get_by_name(name)
-
-        delete_action = hcloud_client.servers.delete(server)
-    except APIException as e:
-        log.error('Could not start the deletion of server {0}: {1}'.format(name, e.message))
-        return
-
-    log.info('Action started at {0}'.format(delete_action.started.strftime('%c')))
-
-    delete_action_dict = _hcloud_format_action(
-        _hcloud_wait_for_action(delete_action)
-    )
-
-    if delete_action_dict['status'] == 'success':
-        log.info('Executed {0} on {1} at {2} successfully.'.format(delete_action_dict['command'],
-                                                                   ', '.join(
-                                                                       ['{0} {1}'.format(resource['type'],
-                                                                                         resource['id'])
-                                                                        for resource in
-                                                                        delete_action_dict['resources']]),
-                                                                   delete_action_dict['finished']))
-    else:
-        log.error('Execution of {0} on {1} at {2} failed: {3} - {4}'.format(delete_action_dict['command'],
-                                                                            ', '.join(['{0} {1}'.format(
-                                                                                resource['type'], resource['id']) for
-                                                                                resource in
-                                                                                delete_action_dict['resources']]),
-                                                                            delete_action_dict['finished'],
-                                                                            delete_action_dict['error']['code'],
-                                                                            delete_action_dict['error']['message']))
-
-    __utils__['cloud.fire_event'](
-        'event',
-        'destroyed instance',
-        'salt/cloud/{0}/destroyed'.format(name),
-        args={'name': name},
-        sock_dir=__opts__['sock_dir'],
-        transport=__opts__['transport']
-    )
-
-    if __opts__.get('update_cachedir', False) is True:
-        __utils__['cloud.delete_minion_cachedir'](name, __active_provider_name__.split(':')[0], __opts__)
-
-    return delete_action_dict
-
-
-def _hcloud_wait_for_action(action: Action):
-    while action.status == 'running':
-        action = hcloud_client.actions.get_by_id(action.id)
-        log.info('Progress: {0}'.format(action.progress))
-        time.sleep(1)
-    return action
-
-
-def _hcloud_format_action(action: Action):
-    salt_dict = {
-        'command': action.command,
-        'resources': action.resources,
-        'status': action.status,
-        'started': action.started.strftime('%c'),
-        'finished': action.finished.strftime('%c')
-    }
-
-    if action.status == 'error':
-        salt_dict['error'] = action.error
-
-    return salt_dict
-
-
-@refresh_hcloud_client
-def list_nodes(call=None):
-    if call == 'action':
-        raise SaltCloudException(
-            'The list_nodes function must be called with -f or --function.'
-        )
-
-    try:
-        servers = {server.name: _hcloud_format_server(server) for server in hcloud_client.servers.get_all()}
-    except APIException as e:
-        log.error(e.message)
-        return False
-
-    return servers
-
-
-def _hcloud_format_server(server: Server, full=False):
-    server_salt = {
-        'id': server.id,
-        'size': server.server_type.name,
-        'state': server.status,
-        'private_ips': server.private_net,
-        'public_ips': [server.public_net.ipv4.ip, server.public_net.ipv6.ip] + [floating_ip.ip for floating_ip in
-                                                                                server.public_net.floating_ips],
-    }
-
-    # HCloud-API doesn't return an image if it is a backup or snapshot based server
-    if server.image is not None:
-        server_salt['image'] = server.image.name
-    else:
-        server_salt['image'] = 'unknown'
-
-    if full:
-        # TODO: Expand attributes for future list_nodes_full method
-        pass
-
-    return server_salt
-
-
-@refresh_hcloud_client
-def avail_images(call=None):
-    if call == 'action':
-        raise SaltCloudException(
-            'The avail_images function must be called with -f or --function.'
-        )
-
-    images = hcloud_client.images.get_all()
-
-    formatted_images = {}
-
-    for image in images:
-        if image.status == 'available':
-            formatted_images[image.name] = _format_image(image)
-
-    return formatted_images
-
-
-def _format_image(image: Image):
-    # TODO: Show more information as of
-    #  https://hcloud-python.readthedocs.io/en/latest/api.clients.images.html#hcloud.images.domain.Image
-    formatted_image = {
-        'id': image.id,
-        'type': image.type,
-        'name': image.name,
-        'description': image.description,
-    }
-
-    return formatted_image
-
-
-@refresh_hcloud_client
-def avail_sizes(call=None):
-    if call == 'action':
-        raise SaltCloudException(
-            'The avail_sizes function must be called with -f or --function.'
-        )
-
-    server_types = hcloud_client.server_types.get_all()
-
-    formatted_server_types = {}
-
-    for server_type in server_types:
-        if not server_type.deprecated:
-            formatted_server_types[server_type.name] = _format_server_type(server_type)
-
-    return formatted_server_types
-
-
-def _format_server_type(size: ServerType):
-    formatted_server_type = {
-        'id': size.id,
-        'name': size.name,
-        'desc': size.description,
-        'cores': f'{size.cores} ({size.cpu_type})',
-        'memory': size.memory,
-        'disk': f'{size.disk} ({size.storage_type})'
-    }
-
-    for price in size.prices:
-        formatted_server_type[price['location']] = {
-            'hourly': {
-                'net': price['price_hourly']['net'],
-                'gross': price['price_hourly']['gross']},
-            'monthly': {
-                'net': price['price_monthly']['net'],
-                'gross': price['price_monthly']['gross']}
-        }
-
-    return formatted_server_type
-
-
-@refresh_hcloud_client
 def create(vm_):
     data = {}
 
@@ -384,3 +174,213 @@ def create(vm_):
         transport=__opts__['transport'])
 
     return ret
+
+
+@refresh_hcloud_client
+def avail_images(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The avail_images function must be called with -f or --function.'
+        )
+
+    images = hcloud_client.images.get_all()
+
+    formatted_images = {}
+
+    for image in images:
+        if image.status == 'available':
+            formatted_images[image.name] = _format_image(image)
+
+    return formatted_images
+
+
+@refresh_hcloud_client
+def avail_sizes(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The avail_sizes function must be called with -f or --function.'
+        )
+
+    server_types = hcloud_client.server_types.get_all()
+
+    formatted_server_types = {}
+
+    for server_type in server_types:
+        if not server_type.deprecated:
+            formatted_server_types[server_type.name] = _format_server_type(server_type)
+
+    return formatted_server_types
+
+
+@refresh_hcloud_client
+def list_nodes(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The list_nodes function must be called with -f or --function.'
+        )
+
+    try:
+        servers = {server.name: _hcloud_format_server(server) for server in hcloud_client.servers.get_all()}
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return servers
+
+
+def _format_server_type(size: ServerType):
+    formatted_server_type = {
+        'id': size.id,
+        'name': size.name,
+        'desc': size.description,
+        'cores': f'{size.cores} ({size.cpu_type})',
+        'memory': size.memory,
+        'disk': f'{size.disk} ({size.storage_type})'
+    }
+
+    for price in size.prices:
+        formatted_server_type[price['location']] = {
+            'hourly': {
+                'net': price['price_hourly']['net'],
+                'gross': price['price_hourly']['gross']},
+            'monthly': {
+                'net': price['price_monthly']['net'],
+                'gross': price['price_monthly']['gross']}
+        }
+
+    return formatted_server_type
+
+
+@refresh_hcloud_client
+def destroy(name, call=None):
+    '''
+    Destroys a HCloud-VM by name.
+
+    name
+        The name of VM to be be destroyed.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-cloud -d vm_name
+    '''
+    if call == 'function':
+        raise SaltCloudException(
+            'The destroy action must be called with -d, --destroy, '
+            '-a or --action.'
+        )
+
+    __utils__['cloud.fire_event'](
+        'event',
+        'destroying instance',
+        'salt/cloud/{0}/destroying'.format(name),
+        args={'name': name},
+        sock_dir=__opts__['sock_dir'],
+        transport=__opts__['transport']
+    )
+
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+
+        delete_action = hcloud_client.servers.delete(server)
+    except APIException as e:
+        log.error('Could not start the deletion of server {0}: {1}'.format(name, e.message))
+        return
+
+    log.info('Action started at {0}'.format(delete_action.started.strftime('%c')))
+
+    delete_action_dict = _hcloud_format_action(
+        _hcloud_wait_for_action(delete_action)
+    )
+
+    if delete_action_dict['status'] == 'success':
+        log.info('Executed {0} on {1} at {2} successfully.'.format(delete_action_dict['command'],
+                                                                   ', '.join(
+                                                                       ['{0} {1}'.format(resource['type'],
+                                                                                         resource['id'])
+                                                                        for resource in
+                                                                        delete_action_dict['resources']]),
+                                                                   delete_action_dict['finished']))
+    else:
+        log.error('Execution of {0} on {1} at {2} failed: {3} - {4}'.format(delete_action_dict['command'],
+                                                                            ', '.join(['{0} {1}'.format(
+                                                                                resource['type'], resource['id']) for
+                                                                                resource in
+                                                                                delete_action_dict['resources']]),
+                                                                            delete_action_dict['finished'],
+                                                                            delete_action_dict['error']['code'],
+                                                                            delete_action_dict['error']['message']))
+
+    __utils__['cloud.fire_event'](
+        'event',
+        'destroyed instance',
+        'salt/cloud/{0}/destroyed'.format(name),
+        args={'name': name},
+        sock_dir=__opts__['sock_dir'],
+        transport=__opts__['transport']
+    )
+
+    if __opts__.get('update_cachedir', False) is True:
+        __utils__['cloud.delete_minion_cachedir'](name, __active_provider_name__.split(':')[0], __opts__)
+
+    return delete_action_dict
+
+
+def _hcloud_wait_for_action(action: Action):
+    while action.status == 'running':
+        action = hcloud_client.actions.get_by_id(action.id)
+        log.info('Progress: {0}'.format(action.progress))
+        time.sleep(1)
+    return action
+
+
+def _hcloud_format_action(action: Action):
+    salt_dict = {
+        'command': action.command,
+        'resources': action.resources,
+        'status': action.status,
+        'started': action.started.strftime('%c'),
+        'finished': action.finished.strftime('%c')
+    }
+
+    if action.status == 'error':
+        salt_dict['error'] = action.error
+
+    return salt_dict
+
+
+def _hcloud_format_server(server: Server, full=False):
+    server_salt = {
+        'id': server.id,
+        'size': server.server_type.name,
+        'state': server.status,
+        'private_ips': server.private_net,
+        'public_ips': [server.public_net.ipv4.ip, server.public_net.ipv6.ip] + [floating_ip.ip for floating_ip in
+                                                                                server.public_net.floating_ips],
+    }
+
+    # HCloud-API doesn't return an image if it is a backup or snapshot based server
+    if server.image is not None:
+        server_salt['image'] = server.image.name
+    else:
+        server_salt['image'] = 'unknown'
+
+    if full:
+        # TODO: Expand attributes for future list_nodes_full method
+        pass
+
+    return server_salt
+
+
+def _format_image(image: Image):
+    # TODO: Show more information as of
+    #  https://hcloud-python.readthedocs.io/en/latest/api.clients.images.html#hcloud.images.domain.Image
+    formatted_image = {
+        'id': image.id,
+        'type': image.type,
+        'name': image.name,
+        'description': image.description,
+    }
+
+    return formatted_image
