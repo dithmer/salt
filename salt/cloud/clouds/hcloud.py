@@ -373,7 +373,7 @@ def _hcloud_format_server(server: Server, full=False):
     return server_salt
 
 
-def _format_image(image: Image):
+def _hcloud_format_image(image: Image):
     # TODO: Show more information as of
     #  https://hcloud-python.readthedocs.io/en/latest/api.clients.images.html#hcloud.images.domain.Image
     formatted_image = {
