@@ -19,24 +19,6 @@ __virtualname__ = 'hcloud'
 
 hcloud_client = None
 
-
-def retry_after_rate_limit_exceeded(func):
-    @functools.wraps(func.__name__)
-    def wrapped_hcloud_call(*args, **kwargs):
-        while True:
-            try:
-                return func(*args, **kwargs)
-            except APIException as e:
-                if e.code == 'rate_limit_exceeded':
-                    log.info('hetzner cloud rate limit exceeded, \
-                             trying again in 10 seconds')
-                    time.sleep(10)
-                else:
-                    raise APIException(e.code, e.message, e.details)
-
-    return wrapped_hcloud_call
-
-
 def refresh_hcloud_client(func):
     @functools.wraps(func.__name__)
     def wrapped_hcloud_call(*args, **kwargs):
