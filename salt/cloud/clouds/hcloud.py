@@ -69,21 +69,8 @@ def create(vm_):
         sock_dir=__opts__['sock_dir'],
         transport=__opts__['transport'])
 
-    ssh_keyfile = config.get_cloud_config_value('ssh_keyfile',
-                                                vm_,
-                                                __opts__,
-                                                default=None)
-    if ssh_keyfile is None:
-        log.error('Property ssh_keyfile must be set.')
-        return False
-
     ssh_keyfile_public = config.get_cloud_config_value('ssh_keyfile_public',
-                                                       vm_,
-                                                       __opts__,
-                                                       default=None)
-    if ssh_keyfile_public is None:
-        log.error('Property ssh_keyfile_public must be set')
-        return False
+                                                       vm_, __opts__)
 
     try:
         with salt.utils.files.fopen(ssh_keyfile_public) as file:
