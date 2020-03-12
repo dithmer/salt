@@ -109,8 +109,7 @@ def destroy(name, call=None):
                                                                    ', '.join(
                                                                        ['{0} {1}'.format(resource['type'],
                                                                                          resource['id'])
-                                                                        for resource in
-                                                                        delete_action_dict['resources']]),
+                                                                        for resource in delete_action_dict['resources']]),
                                                                    delete_action_dict['finished']))
     else:
         log.error('Execution of {0} on {1} at {2} failed: {3} - {4}'.format(delete_action_dict['command'],
