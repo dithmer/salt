@@ -71,6 +71,8 @@ def avail_images():
 
 
 def _format_image(image: Image):
+    # TODO: Show more information as of
+    #  https://hcloud-python.readthedocs.io/en/latest/api.clients.images.html#hcloud.images.domain.Image
     formatted_image = {
         'id': image.id,
         'type': image.type,
