@@ -180,13 +180,18 @@ def list_nodes(call=None):
 def _hcloud_format_server(server: Server, full=False):
     server_salt = {
         'id': server.id,
-        'image': server.image.name,
         'size': server.server_type.name,
         'state': server.status,
         'private_ips': server.private_net,
         'public_ips': [server.public_net.ipv4.ip, server.public_net.ipv6.ip] + [floating_ip.ip for floating_ip in
                                                                                 server.public_net.floating_ips],
     }
+
+    # HCloud-API doesn't return an image if it is a backup or snapshot based server
+    if server.image is not None:
+        server_salt['image'] = server.image.name
+    else:
+        server_salt['image'] = 'unknown'
 
     if full:
         # TODO: Expand attributes for future list_nodes_full method
