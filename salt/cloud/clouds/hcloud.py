@@ -98,15 +98,7 @@ def create(vm_):
         log.error(f'Could not read ssh keyfile {ssh_keyfile_public}')
         return False
 
-    (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
-
-    hcloud_ssh_public_keys = hcloud_client.ssh_keys.get_all()
-    hcloud_ssh_public_key = None
-    for key in hcloud_ssh_public_keys:
-        (hcloud_algorithm, hcloud_key, *hcloud_host) = key.public_key.split()
-        if hcloud_algorithm == local_algorithm and hcloud_key == local_key:
-            hcloud_ssh_public_key = key
-            break
+    hcloud_ssh_public_key = _hcloud_find_matching_ssh_pub_key(local_ssh_public_key)
 
     if hcloud_ssh_public_key is None:
         log.error(f'Couldn\'t find a matching ssh key in your hcloud project.')
@@ -308,6 +300,21 @@ def destroy(name, call=None):
         __utils__['cloud.delete_minion_cachedir'](name, __active_provider_name__.split(':')[0], __opts__)
 
     return delete_action_dict
+
+
+def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
+    (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
+
+    hcloud_ssh_public_keys = hcloud_client.ssh_keys.get_all()
+
+    matching_pub_key = None
+    for key in hcloud_ssh_public_keys:
+        (hcloud_algorithm, hcloud_key, *hcloud_host) = key.public_key.split()
+        if hcloud_algorithm == local_algorithm and hcloud_key == local_key:
+            matching_pub_key = key
+            break
+
+    return matching_pub_key
 
 
 def _hcloud_wait_for_action(action: Action):
