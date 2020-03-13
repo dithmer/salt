@@ -363,6 +363,24 @@ def show_instance(name, call=None):
 
     return _hcloud_format_server(server, full=True)
 
+@refresh_hcloud_client
+def boot_instance(name, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The function boot_instance must be called with -a or --action'
+        )
+
+    try:
+        boot_action = _hcloud_wait_for_action(
+            hcloud_client.servers.power_on(
+                hcloud_client.servers.get_by_name(name)
+            )
+        )
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return _hcloud_format_action(boot_action)
 
 @refresh_hcloud_client
 def shutdown_instance(name, kwargs=None, call=None):
