@@ -13,6 +13,7 @@ from hcloud.images.domain import Image
 from hcloud.actions.domain import Action
 from hcloud.locations.domain import Location
 from hcloud.datacenters.domain import Datacenter
+from hcloud.ssh_keys.domain import SSHKey
 
 import salt.config as config
 import salt.utils.files
@@ -457,6 +458,22 @@ def avail_datacenters(call=None):
     return fromatted_datacenters
 
 
+@refresh_hcloud_client
+def avail_ssh_keys(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function avail_ssh_keys must be called with -f or --function'
+        )
+
+    try:
+        formatted_ssh_keys = [_hcloud_format_ssh_keys(ssh_key) for ssh_key in hcloud_client.ssh_keys.get_all()]
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return formatted_ssh_keys
+
+
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
 
@@ -619,3 +636,16 @@ def _hcloud_format_server_type(size: ServerType):
         }
 
     return formatted_server_type
+
+
+def _hcloud_format_ssh_keys(ssh_key: SSHKey):
+    formatted_ssh_key = {
+        'id': ssh_key.id,
+        'name': ssh_key.name,
+        'fingerprint': ssh_key.fingerprint,
+        'public_key': ssh_key.public_key,
+        'labels': ssh_key.labels,
+        'created': ssh_key.created.strftime('%c'),
+    }
+
+    return formatted_ssh_key
