@@ -11,6 +11,8 @@ from hcloud.server_types.domain import ServerType
 from hcloud.servers.domain import Server
 from hcloud.images.domain import Image
 from hcloud.actions.domain import Action
+from hcloud.locations.domain import Location
+from hcloud.datacenters.domain import Datacenter
 
 import salt.config as config
 import salt.utils.files
@@ -167,6 +169,22 @@ def create(vm_):
         transport=__opts__['transport'])
 
     return ret
+
+
+@refresh_hcloud_client
+def avail_locations(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function list_locations must be called with -f or --function'
+        )
+
+    try:
+        formatted_locations = [_hcloud_format_location(location) for location in hcloud_client.locations.get_all()]
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return formatted_locations
 
 
 @refresh_hcloud_client
@@ -347,6 +365,23 @@ def show_instance(name, call=None):
     return _hcloud_format_server(server, full=True)
 
 
+@refresh_hcloud_client
+def avail_datacenters(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function list_datacenters must be called with -f or --function'
+        )
+
+    try:
+        fromatted_datacenters = [_hcloud_format_datacenter(datacenter) for datacenter in
+                                 hcloud_client.datacenters.get_all()]
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return fromatted_datacenters
+
+
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
 
@@ -368,6 +403,38 @@ def _hcloud_wait_for_action(action: Action):
         log.info('Progress: {0}'.format(action.progress))
         time.sleep(1)
     return action
+
+
+def _hcloud_format_location(location: Location):
+    formatted_location = {
+        'id': location.id,
+        'name': location.name,
+        'description': location.description,
+        'country': location.country,
+        'city': location.city,
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'network_zone': location.network_zone,
+    }
+
+    return formatted_location
+
+
+def _hcloud_format_datacenter(datacenter: Datacenter):
+    formatted_datacenter = {
+        'id': datacenter.id,
+        'name': datacenter.name,
+        'description': datacenter.description,
+        'location': datacenter.location.name,
+        'server_types': {
+            'available': [server_type.name for server_type in datacenter.server_types.available],
+            'supported': [server_type.name for server_type in datacenter.server_types.supported],
+            'available_for_migration': [server_type.name for server_type in
+                                        datacenter.server_types.available_for_migration],
+        },
+    }
+
+    return formatted_datacenter
 
 
 def _hcloud_format_action(action: Action):
