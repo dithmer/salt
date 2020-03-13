@@ -542,19 +542,52 @@ def create_image(name, kwargs=None, call=None):
     ret = {}
 
     try:
-        create_image_action = _hcloud_wait_for_action(
-            hcloud_client.servers.create_image(
+        create_image_response = hcloud_client.servers.create_image(
+            hcloud_client.servers.get_by_name(name),
+            description=kwargs.get('description'),
+            type=kwargs.get('type'),
+            labels=kwargs.get('labels')
+        )
+
+        create_image_action = _hcloud_wait_for_action(create_image_response.action)
+        created_image = create_image_response.image
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    ret.update({'action': _hcloud_format_action(create_image_action)})
+    ret.update({'image': _hcloud_format_image(created_image)})
+
+    return ret
+
+
+@refresh_hcloud_client
+def change_type(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action change_type must be called with -a or --action'
+        )
+
+    if kwargs is None or kwargs.get('server_type') is None or kwargs.get('upgrade_disk') is None:
+        raise SaltCloudException(
+            'You must provide server_type (string) and upgrade_disk (bool) in kwargs.'
+        )
+
+    try:
+        change_type_action = _hcloud_wait_for_action(
+            hcloud_client.servers.change_type(
                 hcloud_client.servers.get_by_name(name),
-                description=kwargs.get('description'),
-                type=kwargs.get('type'),
-                labels=kwargs.get('labels')
+                server_type=hcloud_client.server_types.get_by_name(kwargs.get('server_type')),
+                upgrade_disk=kwargs.get('upgrade_disk')
             )
         )
     except APIException as e:
         log.error(e.message)
         return
 
-    ret.update(_hcloud_format_action(create_image_action))
+    ret = {}
+
+    ret.update(_hcloud_format_action(change_type_action))
 
     return ret
 
