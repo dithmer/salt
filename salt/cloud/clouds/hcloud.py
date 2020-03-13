@@ -211,22 +211,6 @@ def avail_sizes(call=None):
 
 
 @refresh_hcloud_client
-def list_nodes(call=None):
-    if call == 'action':
-        raise SaltCloudException(
-            'The list_nodes function must be called with -f or --function.'
-        )
-
-    try:
-        servers = {server.name: _hcloud_format_server(server) for server in hcloud_client.servers.get_all()}
-    except APIException as e:
-        log.error(e.message)
-        return False
-
-    return servers
-
-
-@refresh_hcloud_client
 def destroy(name, call=None):
     '''
     Destroys a HCloud-VM by name.
@@ -300,6 +284,22 @@ def destroy(name, call=None):
         __utils__['cloud.delete_minion_cachedir'](name, __active_provider_name__.split(':')[0], __opts__)
 
     return delete_action_dict
+
+
+@refresh_hcloud_client
+def list_nodes(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The list_nodes function must be called with -f or --function.'
+        )
+
+    try:
+        servers = {server.name: _hcloud_format_server(server) for server in hcloud_client.servers.get_all()}
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return servers
 
 
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
