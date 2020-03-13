@@ -67,7 +67,6 @@ def get_configured_provider():
 
 @refresh_hcloud_client
 def create(vm_):
-
     name = vm_['name']
     try:
         # Check for required profile parameters before sending any API calls.
@@ -154,7 +153,6 @@ def create(vm_):
     ret = __utils__['cloud.bootstrap'](vm_, __opts__)
 
     ret.update(_hcloud_format_server(server))
-
 
     log.info('Created Cloud VM \'{0}\''.format(name))
 
@@ -363,6 +361,7 @@ def show_instance(name, call=None):
 
     return _hcloud_format_server(server, full=True)
 
+
 @refresh_hcloud_client
 def boot_instance(name, call=None):
     if call == 'function':
@@ -381,6 +380,7 @@ def boot_instance(name, call=None):
         return
 
     return _hcloud_format_action(boot_action)
+
 
 @refresh_hcloud_client
 def shutdown_instance(name, kwargs=None, call=None):
@@ -409,6 +409,35 @@ def shutdown_instance(name, kwargs=None, call=None):
         return
 
     return _hcloud_format_action(shutdown_action)
+
+
+@refresh_hcloud_client
+def reboot_instance(name, kwargs=None, call=None):
+    if kwargs is None:
+        kwargs = {
+            'hard': False
+        }
+
+    if call == 'function':
+        raise SaltCloudException(
+            'The action reboot_instance must be called with -a or --action'
+        )
+
+    reboot_method = hcloud_client.servers.reboot
+
+    # Give the opportunity to use hard power off via kwargs
+    if kwargs.get('hard'):
+        reboot_method = hcloud_client.servers.reset
+
+    try:
+        reboot_action = _hcloud_wait_for_action(
+            reboot_method(hcloud_client.servers.get_by_name(name))
+        )
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return _hcloud_format_action(reboot_action)
 
 
 @refresh_hcloud_client
