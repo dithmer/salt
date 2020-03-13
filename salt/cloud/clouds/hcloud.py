@@ -330,6 +330,20 @@ def list_nodes_select(call=None):
         list_nodes_full('function'), __opts__['query.selection'], call,
     )
 
+@refresh_hcloud_client
+def show_instance(name, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The show_instance action must be called with -a or --action'
+        )
+
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return _hcloud_format_server(server, full=True)
 
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
