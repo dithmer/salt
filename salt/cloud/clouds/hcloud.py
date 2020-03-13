@@ -302,6 +302,22 @@ def list_nodes(call=None):
     return servers
 
 
+@refresh_hcloud_client
+def list_nodes_full(call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The list_nodes_full function must be called with -f or --function'
+        )
+
+    try:
+        servers = {server.name: _hcloud_format_server(server, full=True) for server in hcloud_client.servers.get_all()}
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return servers
+
+
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
 
