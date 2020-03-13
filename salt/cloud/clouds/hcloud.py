@@ -644,6 +644,142 @@ def disable_backup(name, kwargs=None, call=None):
     return ret
 
 
+@refresh_hcloud_client
+def attach_iso(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action attach_iso must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement attach_iso
+
+    return ret
+
+
+@refresh_hcloud_client
+def detach_iso(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action detach_iso must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement detach_iso
+
+    return ret
+
+
+@refresh_hcloud_client
+def change_dns_ptr(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action change_dns_ptr must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement change_dns_ptr
+
+    return ret
+
+
+@refresh_hcloud_client
+def change_protection(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action change_protection must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement change_protection
+
+    return ret
+
+
+@refresh_hcloud_client
+def request_console(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action request_console must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement request_console
+
+    return ret
+
+
+@refresh_hcloud_client
+def attach_to_network(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action attach_to_network must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement attach_to_network
+
+    return ret
+
+
+@refresh_hcloud_client
+def detach_from_network(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action detach_from_network must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement detach_from_network
+
+    return ret
+
+
+@refresh_hcloud_client
+def change_alias_ips(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action change_alias_ips must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    # TODO: Implement change_alias_ips
+
+    return ret
+
+
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
 
