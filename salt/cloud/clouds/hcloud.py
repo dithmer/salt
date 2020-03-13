@@ -577,7 +577,7 @@ def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
 def _hcloud_wait_for_action(action: Action):
     while action.status == 'running':
         action = hcloud_client.actions.get_by_id(action.id)
-        log.info('Progress: {0}'.format(action.progress))
+        log.info('Progress: {0:3d}%'.format(action.progress))
         time.sleep(1)
     return action
 
