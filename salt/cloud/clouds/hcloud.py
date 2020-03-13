@@ -318,6 +318,18 @@ def list_nodes_full(call=None):
     return servers
 
 
+@refresh_hcloud_client
+def list_nodes_select(call=None):
+    '''
+    Return a list of the VMs that are on the provider, with select fields
+
+    Taken like this from https://docs.saltstack.com/en/latest/topics/cloud/cloud.html#the-list-nodes-select-function
+    '''
+    return salt.utils.cloud.list_nodes_select(
+        list_nodes_full('function'), __opts__['query.selection'], call,
+    )
+
+
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
 
