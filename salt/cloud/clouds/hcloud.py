@@ -330,6 +330,7 @@ def list_nodes_select(call=None):
         list_nodes_full('function'), __opts__['query.selection'], call,
     )
 
+
 @refresh_hcloud_client
 def show_instance(name, call=None):
     if call == 'function':
@@ -344,6 +345,7 @@ def show_instance(name, call=None):
         return
 
     return _hcloud_format_server(server, full=True)
+
 
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
@@ -393,17 +395,52 @@ def _hcloud_format_server(server: Server, full=False):
                                                                                 server.public_net.floating_ips],
     }
 
-    # HCloud-API doesn't return an image if it is a backup or snapshot based server
     if server.image is not None:
         server_salt['image'] = server.image.name
     else:
+        # HCloud-API doesn't return an image if it is a backup or snapshot based server
         server_salt['image'] = 'unknown'
 
     if full:
-        # TODO: Expand attributes for future list_nodes_full method
-        pass
+        server_salt['created'] = server.created.strftime('%c')
+        server_salt['datacenter'] = server.datacenter.name
+
+        if server.iso is not None:
+            # Servers iso name is only set for public iso's
+            server_salt['iso'] = server.iso.name if server.iso.name is not None else server.iso.id
+
+        server_salt['rescue_enabled'] = server.rescue_enabled
+        server_salt['locked'] = server.locked
+
+        # Backup window is only set if there are backups enabled
+        if server.backup_window is not None:
+            server_salt['backup_window'] = server.backup_window
+
+        server_salt['outgoing_traffic'] = _get_formatted_bytes_string(
+            server.outgoing_traffic if server.outgoing_traffic is not None else 0)
+        server_salt['ingoing_traffic'] = _get_formatted_bytes_string(
+            server.ingoing_traffic if server.ingoing_traffic is not None else 0)
+        server_salt['included_traffic'] = _get_formatted_bytes_string(server.included_traffic)
+
+        server_salt['protection'] = server.protection
+        server_salt['labels'] = server.labels
+        server_salt['volumes'] = [volume.name for volume in server.volumes]
 
     return server_salt
+
+
+def _get_formatted_bytes_string(bytes: int):
+    # yotta (10^24) should be big enough for now
+    units = ['', 'k', 'M', 'G', 'T', 'P', 'Z', 'Y']
+
+    shrinked_bytes = float(bytes)
+    shrink_times = 0
+
+    while shrinked_bytes > 1000:
+        shrinked_bytes /= 1000
+        shrink_times += 1
+
+    return '{0:.3f} {1}B'.format(shrinked_bytes, units[shrink_times])
 
 
 def _hcloud_format_image(image: Image):
