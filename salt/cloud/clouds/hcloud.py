@@ -67,7 +67,6 @@ def get_configured_provider():
 
 @refresh_hcloud_client
 def create(vm_):
-    data = {}
 
     name = vm_['name']
     try:
@@ -154,7 +153,7 @@ def create(vm_):
     # Bootstrap!
     ret = __utils__['cloud.bootstrap'](vm_, __opts__)
 
-    ret.update(data)
+    ret.update(_hcloud_format_server(server))
 
 
     log.info('Created Cloud VM \'{0}\''.format(name))
