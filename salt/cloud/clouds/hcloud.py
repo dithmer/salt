@@ -474,6 +474,64 @@ def avail_ssh_keys(call=None):
     return formatted_ssh_keys
 
 
+@refresh_hcloud_client
+def enable_rescue_mode(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action enable_rescue_mode must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {
+            'type': 'linux64',
+            'ssh_keys': []
+        }
+
+    ret = {}
+
+    try:
+        enable_rescue_mode_response = hcloud_client.servers.enable_rescue(hcloud_client.servers.get_by_name(name),
+                                                                          kwargs.get('type'), kwargs.get('ssh_keys'))
+
+        rescue_mode_action = _hcloud_wait_for_action(enable_rescue_mode_response.action)
+        rescue_mode_root_password = enable_rescue_mode_response.root_password
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    ret.update(_hcloud_format_action(rescue_mode_action))
+    ret.update({'root_password': rescue_mode_root_password})
+
+    return ret
+
+
+@refresh_hcloud_client
+def disable_rescue_mode(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action disable_rescue_mode must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        disable_rescue_mode_action = _hcloud_wait_for_action(
+            hcloud_client.servers.disable_rescue(
+                hcloud_client.servers.get_by_name(name)
+            )
+        )
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    ret.update(_hcloud_format_action(disable_rescue_mode_action))
+
+    return ret
+
+
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
 
