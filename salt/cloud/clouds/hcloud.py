@@ -482,10 +482,7 @@ def enable_rescue_mode(name, kwargs=None, call=None):
         )
 
     if kwargs is None:
-        kwargs = {
-            'type': 'linux64',
-            'ssh_keys': []
-        }
+        kwargs = {}
 
     ret = {}
 
@@ -528,6 +525,36 @@ def disable_rescue_mode(name, kwargs=None, call=None):
         return
 
     ret.update(_hcloud_format_action(disable_rescue_mode_action))
+
+    return ret
+
+
+@refresh_hcloud_client
+def create_image(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action create_image must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        create_image_action = _hcloud_wait_for_action(
+            hcloud_client.servers.create_image(
+                hcloud_client.servers.get_by_name(name),
+                description=kwargs.get('description'),
+                type=kwargs.get('type'),
+                labels=kwargs.get('labels')
+            )
+        )
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    ret.update(_hcloud_format_action(create_image_action))
 
     return ret
 
