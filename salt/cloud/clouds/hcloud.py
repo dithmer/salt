@@ -5,7 +5,7 @@ import logging
 import time
 import pprint
 
-from hcloud import Client
+import hcloud
 from hcloud.hcloud import APIException
 from hcloud.server_types.domain import ServerType
 from hcloud.servers.domain import Server
@@ -40,7 +40,7 @@ def refresh_hcloud_client(func):
                                                 search_global=False)
 
         if hcloud_client is None:
-            hcloud_client = Client(token=api_key)
+            hcloud_client = hcloud.Client(token=api_key)
 
         return func(*args, **kwargs)
 
@@ -81,7 +81,7 @@ def create(vm_):
     except AttributeError:
         pass
 
-    log.info(f'Sending request to create a new hetzner-cloud vm.')
+    log.info('Sending request to create a new hetzner-cloud vm.')
     __utils__['cloud.fire_event'](
         'event',
         'starting create',
@@ -98,13 +98,13 @@ def create(vm_):
         with salt.utils.files.fopen(ssh_keyfile_public) as file:
             local_ssh_public_key = file.read()
     except OSError:
-        log.error(f'Could not read ssh keyfile {ssh_keyfile_public}')
+        log.error('Could not read ssh keyfile {0}'.format(ssh_keyfile_public))
         return False
 
     hcloud_ssh_public_key = _hcloud_find_matching_ssh_pub_key(local_ssh_public_key)
 
     if hcloud_ssh_public_key is None:
-        log.error(f'Couldn\'t find a matching ssh key in your hcloud project.')
+        log.error('Couldn\'t find a matching ssh key in your hcloud project.')
         return False
 
     try:
@@ -131,11 +131,11 @@ def create(vm_):
             created_server_response.server.id)
 
         if server.status == "running":
-            log.info(f'Server {server.name} is up running now.')
+            log.info('Server {0} is up running now.'.format(server.name))
             break
         else:
             log.info(
-                f'Waiting for server {server.name} to be running: {server.status}'
+                'Waiting for server {0} to be running: {1}'.format(server.name, server.status)
             )
             time.sleep(1)
 
@@ -156,8 +156,8 @@ def create(vm_):
 
     ret.update(data)
 
-    log.info(f'Created Cloud VM \'{name}\'')
-    log.debug(f'\'{name}\' VM creation details:\n{pprint.pformat(data)}')
+
+    log.info('Created Cloud VM \'{0}\''.format(name))
 
     __utils__['cloud.fire_event'](
         'event',
@@ -557,9 +557,9 @@ def _hcloud_format_server_type(size: ServerType):
         'id': size.id,
         'name': size.name,
         'desc': size.description,
-        'cores': f'{size.cores} ({size.cpu_type})',
+        'cores': '{0} ({1})'.format(size.cores, size.cpu_type),
         'memory': size.memory,
-        'disk': f'{size.disk} ({size.storage_type})'
+        'disk': '{0} ({1})'.format(size.disk, size.storage_type)
     }
 
     for price in size.prices:
