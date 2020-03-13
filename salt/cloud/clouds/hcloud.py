@@ -366,6 +366,35 @@ def show_instance(name, call=None):
 
 
 @refresh_hcloud_client
+def shutdown_instance(name, kwargs=None, call=None):
+    if kwargs is None:
+        kwargs = {
+            'hard': False
+        }
+
+    if call == 'function':
+        raise SaltCloudException(
+            'The action shutdown_instance must be called with -a or --action'
+        )
+
+    shutdown_method = hcloud_client.servers.shutdown
+
+    # Give the opportunity to use hard power off via kwargs
+    if kwargs.get('hard'):
+        shutdown_method = hcloud_client.servers.power_off
+
+    try:
+        shutdown_action = _hcloud_wait_for_action(
+            shutdown_method(hcloud_client.servers.get_by_name(name))
+        )
+    except APIException as e:
+        log.error(e.message)
+        return
+
+    return _hcloud_format_action(shutdown_action)
+
+
+@refresh_hcloud_client
 def avail_datacenters(call=None):
     if call == 'action':
         raise SaltCloudException(
