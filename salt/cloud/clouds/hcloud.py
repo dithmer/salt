@@ -573,6 +573,8 @@ def change_type(name, kwargs=None, call=None):
             'You must provide server_type (string) and upgrade_disk (bool) in kwargs.'
         )
 
+    ret = {}
+
     try:
         change_type_action = _hcloud_wait_for_action(
             hcloud_client.servers.change_type(
@@ -585,9 +587,59 @@ def change_type(name, kwargs=None, call=None):
         log.error(e.message)
         return
 
+    ret.update(_hcloud_format_action(change_type_action))
+
+    return ret
+
+
+@refresh_hcloud_client
+def enable_backup(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action enable_backup must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
     ret = {}
 
-    ret.update(_hcloud_format_action(change_type_action))
+    try:
+        enable_backup_action = _hcloud_wait_for_action(
+            hcloud_client.servers.enable_backup(
+                hcloud_client.servers.get_by_name(name)
+            )
+        )
+    except APIException as e:
+        log.error(e.message)
+
+    ret.update(_hcloud_format_action(enable_backup_action))
+
+    return ret
+
+
+@refresh_hcloud_client
+def disable_backup(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action enable_backup must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        disable_backup_action = _hcloud_wait_for_action(
+            hcloud_client.servers.disable_backup(
+                hcloud_client.servers.get_by_name(name)
+            )
+        )
+    except APIException as e:
+        log.error(e.message)
+
+    ret.update(_hcloud_format_action(disable_backup_action))
 
     return ret
 
