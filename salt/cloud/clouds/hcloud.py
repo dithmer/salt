@@ -14,6 +14,7 @@ from hcloud.actions.domain import Action
 
 import salt.config as config
 import salt.utils.files
+import salt.utils.cloud
 from salt.exceptions import (
     SaltCloudException
 )
