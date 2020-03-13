@@ -622,7 +622,7 @@ def enable_backup(name, kwargs=None, call=None):
 def disable_backup(name, kwargs=None, call=None):
     if call == 'function':
         raise SaltCloudException(
-            'The action enable_backup must be called with -a or --action'
+            'The action disable_backup must be called with -a or --action'
         )
 
     if kwargs is None:
