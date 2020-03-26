@@ -14,6 +14,7 @@ from hcloud.actions.domain import Action
 from hcloud.locations.domain import Location
 from hcloud.datacenters.domain import Datacenter
 from hcloud.ssh_keys.domain import SSHKey
+from hcloud.isos.domain import Iso
 
 import salt.config as config
 import salt.utils.files
@@ -645,6 +646,34 @@ def disable_backup(name, kwargs=None, call=None):
 
 
 @refresh_hcloud_client
+def avail_isos(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function avail_isos must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    try:
+        name = kwargs.get('name')
+        isos = None
+
+        if name is not None:
+            isos = hcloud_client.isos.get_all(name)
+        else:
+            isos = hcloud_client.isos.get_all()
+
+        isos = [_hcloud_format_iso(iso) for iso in isos]
+
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return isos
+
+
+@refresh_hcloud_client
 def attach_iso(name, kwargs=None, call=None):
     if call == 'function':
         raise SaltCloudException(
@@ -654,9 +683,34 @@ def attach_iso(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    iso_id_or_name = None
+    get_iso_method = None
+
+    if kwargs.get('id') is not None:
+        get_iso_method = hcloud_client.isos.get_by_id
+        iso_id_or_name = kwargs.get('id')
+    elif kwargs.get('name') is not None:
+        get_iso_method = hcloud_client.isos.get_by_name
+        iso_id_or_name = kwargs.get('name')
+    else:
+        raise SaltCloudException(
+            'Please provide id or name of the iso to attach as a keyword argument'
+        )
+
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+        iso = get_iso_method(iso_id_or_name)
+
+        attach_iso_action = _hcloud_wait_for_action(
+            hcloud_client.servers.attach_iso(server=server, iso=iso)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
     ret = {}
 
-    # TODO: Implement attach_iso
+    ret.update(_hcloud_format_action(attach_iso_action))
 
     return ret
 
@@ -673,7 +727,17 @@ def detach_iso(name, kwargs=None, call=None):
 
     ret = {}
 
-    # TODO: Implement detach_iso
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+
+        detach_iso_action = _hcloud_wait_for_action(
+            hcloud_client.servers.detach_iso(server=server)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update(_hcloud_format_action(detach_iso_action))
 
     return ret
 
@@ -942,6 +1006,18 @@ def _hcloud_format_server_type(size: ServerType):
         }
 
     return formatted_server_type
+
+
+def _hcloud_format_iso(iso: Iso):
+    formatted_iso = {
+        'id': iso.id,
+        'name': iso.name,
+        'description': iso.description,
+        'type': iso.type,
+        'deprecated': None if iso.deprecated is None else iso.deprecated.strftime('%c'),
+    }
+
+    return formatted_iso
 
 
 def _hcloud_format_ssh_keys(ssh_key: SSHKey):
