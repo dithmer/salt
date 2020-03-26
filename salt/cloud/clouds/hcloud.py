@@ -15,6 +15,7 @@ from hcloud.locations.domain import Location
 from hcloud.datacenters.domain import Datacenter
 from hcloud.ssh_keys.domain import SSHKey
 from hcloud.isos.domain import Iso
+from hcloud.networks.domain import Network, NetworkSubnet, NetworkRoute
 
 import salt.config as config
 import salt.utils.files
@@ -485,11 +486,18 @@ def enable_rescue_mode(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    ssh_keys = kwargs.get('ssh_keys')
+    if ssh_keys is not None:
+        ssh_keys = [key for key in ssh_keys.split(',')]
+
+    rescue_type = kwargs.get('type')
+
     ret = {}
 
     try:
-        enable_rescue_mode_response = hcloud_client.servers.enable_rescue(hcloud_client.servers.get_by_name(name),
-                                                                          kwargs.get('type'), kwargs.get('ssh_keys'))
+        server = hcloud_client.servers.get_by_name(name)
+
+        enable_rescue_mode_response = hcloud_client.servers.enable_rescue(server=server, type=rescue_type, ssh_keys=ssh_keys)
 
         rescue_mode_action = _hcloud_wait_for_action(enable_rescue_mode_response.action)
         rescue_mode_root_password = enable_rescue_mode_response.root_password
@@ -788,9 +796,22 @@ def change_protection(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    delete = kwargs.get('delete')
+    rebuild = kwargs.get('rebuild')
+
     ret = {}
 
-    # TODO: Implement change_protection
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+
+        change_protection_action = _hcloud_wait_for_action(
+            hcloud_client.servers.change_protection(server=server, delete=delete, rebuild=rebuild)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update(_hcloud_format_action(change_protection_action))
 
     return ret
 
@@ -807,9 +828,49 @@ def request_console(name, kwargs=None, call=None):
 
     ret = {}
 
-    # TODO: Implement request_console
+    server = hcloud_client.servers.get_by_name(name)
+
+    try:
+        request_console_response = hcloud_client.servers.request_console(server=server)
+
+        request_console_wss_url = request_console_response.wss_url
+        request_console_password = request_console_response.password
+
+        request_console_action = _hcloud_wait_for_action(
+            request_console_response.action
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update({'wss_url': request_console_wss_url})
+    ret.update({'password': request_console_password})
+
+    ret.update(_hcloud_format_action(request_console_action))
 
     return ret
+
+
+@refresh_hcloud_client
+def avail_networks(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function avail_networks must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    name = kwargs.get('name')
+    label_selector = kwargs.get('label_selector')
+
+    try:
+        networks = hcloud_client.networks.get_all(name=name, label_selector=label_selector)
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return [_hcloud_format_network(network) for network in networks]
 
 
 @refresh_hcloud_client
@@ -822,9 +883,37 @@ def attach_to_network(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    if kwargs.get('id') is not None:
+        get_network_method = hcloud_client.networks.get_by_id
+        network_id_or_name = kwargs.get('id')
+    elif kwargs.get('name') is not None:
+        get_network_method = hcloud_client.networks.get_by_name
+        network_id_or_name = kwargs.get('name')
+    else:
+        raise SaltCloudException(
+            'Please provide id or name of the network to attach as a keyword argument'
+        )
+
+    ip = kwargs.get('ip')
+    alias_ips = kwargs.get('alias_ips')
+
+    if alias_ips is not None:
+        alias_ips = [ip for ip in alias_ips.split(',')]
+
     ret = {}
 
-    # TODO: Implement attach_to_network
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+        network = get_network_method(network_id_or_name)
+
+        attach_to_network_action = _hcloud_wait_for_action(
+            hcloud_client.servers.attach_to_network(server=server, network=network, ip=ip, alias_ips=alias_ips)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update(_hcloud_format_action(attach_to_network_action))
 
     return ret
 
@@ -839,9 +928,31 @@ def detach_from_network(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    if kwargs.get('id') is not None:
+        get_network_method = hcloud_client.networks.get_by_id
+        network_id_or_name = kwargs.get('id')
+    elif kwargs.get('name') is not None:
+        get_network_method = hcloud_client.networks.get_by_name
+        network_id_or_name = kwargs.get('name')
+    else:
+        raise SaltCloudException(
+            'Please provide id or name of the network to detach as a keyword argument'
+        )
+
     ret = {}
 
-    # TODO: Implement detach_from_network
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+        network = get_network_method(network_id_or_name)
+
+        detach_from_network_action = _hcloud_wait_for_action(
+            hcloud_client.servers.detach_from_network(server=server, network=network)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update(_hcloud_format_action(detach_from_network_action))
 
     return ret
 
@@ -856,9 +967,41 @@ def change_alias_ips(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    if kwargs.get('id') is not None:
+        get_network_method = hcloud_client.networks.get_by_id
+        network_id_or_name = kwargs.get('id')
+    elif kwargs.get('name') is not None:
+        get_network_method = hcloud_client.networks.get_by_name
+        network_id_or_name = kwargs.get('name')
+    else:
+        raise SaltCloudException(
+            'Please provide id or name of the network you want to change alias ips as a keyword argument'
+        )
+
+    alias_ips = kwargs.get('alias_ips')
+    if alias_ips is None:
+        raise SaltCloudException(
+            'Please provide alias ips of the network you want to change as a keyword argument'
+        )
+
+    alias_ips = [ip for ip in alias_ips.split(',')]
+
+    log.info(alias_ips)
+
     ret = {}
 
-    # TODO: Implement change_alias_ips
+    try:
+        network = get_network_method(network_id_or_name)
+        server = hcloud_client.servers.get_by_name(name)
+
+        change_alias_ips_action = _hcloud_wait_for_action(
+            hcloud_client.servers.change_alias_ips(server=server, network=network, alias_ips=alias_ips)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update(_hcloud_format_action(change_alias_ips_action))
 
     return ret
 
@@ -1050,3 +1193,36 @@ def _hcloud_format_ssh_keys(ssh_key: SSHKey):
     }
 
     return formatted_ssh_key
+
+
+def _hcloud_format_network(network: Network):
+    def _format_networksubnet(networksubnet: NetworkSubnet):
+        formatted_networksubnet = {
+            'type': networksubnet.type,
+            'ip_range': networksubnet.ip_range,
+            'network_zone': networksubnet.network_zone,
+            'gateway': networksubnet.gateway
+        }
+
+        return formatted_networksubnet
+
+    def _format_networkroute(networkroute: NetworkRoute):
+        formatted_networkroute = {
+            'destination': networkroute.destination,
+            'gateway': networkroute.gateway
+        }
+
+        return formatted_networkroute
+
+    formatted_network = {
+        'id': network.id,
+        'name': network.name,
+        'ip_range': network.ip_range,
+        'subnets': [_format_networksubnet(networksubnet) for networksubnet in network.subnets],
+        'routes': [_format_networkroute(networkroute) for networkroute in network.routes],
+        'servers': [_hcloud_format_server(server, full=False) for server in network.servers],
+        'protection': network.protection,
+        'labels': network.labels
+    }
+
+    return formatted_network
