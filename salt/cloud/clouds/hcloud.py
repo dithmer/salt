@@ -752,9 +752,28 @@ def change_dns_ptr(name, kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    # No check, because None is allowed for dns_ptr
+    dns_ptr = kwargs.get('dns_ptr')
+
+    ip = kwargs.get('ip')
+    if ip is None:
+        raise SaltCloudException(
+            'Please provide at least ip as keyword argument'
+        )
+
     ret = {}
 
-    # TODO: Implement change_dns_ptr
+    try:
+        server = hcloud_client.servers.get_by_name(name)
+
+        change_dns_ptr_action = _hcloud_wait_for_action(
+            hcloud_client.servers.change_dns_ptr(server=server, ip=ip, dns_ptr=dns_ptr)
+        )
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    ret.update(_hcloud_format_action(change_dns_ptr_action))
 
     return ret
 
