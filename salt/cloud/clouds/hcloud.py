@@ -16,6 +16,7 @@ from hcloud.datacenters.domain import Datacenter
 from hcloud.ssh_keys.domain import SSHKey
 from hcloud.isos.domain import Iso
 from hcloud.networks.domain import Network, NetworkSubnet, NetworkRoute
+from hcloud.floating_ips.domain import FloatingIP
 
 import salt.config as config
 import salt.utils.files
@@ -475,6 +476,29 @@ def avail_ssh_keys(call=None):
 
     return formatted_ssh_keys
 
+
+@refresh_hcloud_client
+def avail_floating_ips(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function avail_floating_ips must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    label_selector = kwargs.get('label_selector')
+    name = kwargs.get('name')
+
+    try:
+        floating_ips = hcloud_client.floating_ips.get_all(label_selector=label_selector, name=name)
+    except APIException as e:
+        log.error(e.message)
+        return False
+
+    return [_hcloud_format_floating_ip(floating_ip) for floating_ip in floating_ips]
+
+
 @refresh_hcloud_client
 def floating_ip_change_dns_ptr(kwargs=None, call=None):
     if call == 'action':
@@ -485,15 +509,47 @@ def floating_ip_change_dns_ptr(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    id = kwargs.get('id')
+    name = kwargs.get('name')
+
+    if id is not None:
+        id_or_name = id
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_id
+    elif name is not None:
+        id_or_name = name
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide id or name of the floating ip to change the reverse dns entry of as keyword argument'
+        )
+
+    dns_ptr = kwargs.get('dns_ptr')
+    ip = kwargs.get('ip')
+    if ip is None:
+        raise SaltCloudException(
+            'You must provide the ip for the reverse dns entry update'
+        )
+
     ret = {}
 
     try:
-        # TODO: Implement floating_ip_change_dns_ptr
+        floating_ip = get_floating_ip_method(id_or_name)
 
-    except APIError as e:
+        floating_ip_change_dns_ptr_action = _hcloud_wait_for_action(
+            hcloud_client.floating_ips.change_dns_ptr(
+                floating_ip=floating_ip,
+                ip=ip,
+                dns_ptr=dns_ptr,
+            )
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(floating_ip_change_dns_ptr_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def floating_ip_change_protection(kwargs=None, call=None):
@@ -505,15 +561,38 @@ def floating_ip_change_protection(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    id = kwargs.get('id')
+    name = kwargs.get('name')
+
+    if id is not None:
+        id_or_name = id
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_id
+    elif name is not None:
+        id_or_name = name
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide id or name of the floating ip to change the reverse dns entry of as keyword argument'
+        )
+
+    delete = kwargs.get('delete')
+
     ret = {}
 
     try:
-        # TODO: Implement floating_ip_change_protection
+        floating_ip = get_floating_ip_method(id_or_name)
 
-    except APIError as e:
+        floating_ip_change_protection_action = _hcloud_wait_for_action(
+            hcloud_client.floating_ips.change_protection(floating_ip=floating_ip, delete=delete)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(floating_ip_change_protection_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def floating_ip_create(kwargs=None, call=None):
@@ -525,15 +604,66 @@ def floating_ip_create(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    type = kwargs.get('type')
+    if type is None:
+        raise SaltCloudException(
+            'You must provide the type of the floating ip to create as as keyword argument'
+        )
+
+    home_location_id_or_name = kwargs.get('home_location')
+    server_id_or_name = kwargs.get('server')
+    if home_location_id_or_name is None and server_id_or_name is None:
+        raise SaltCloudException(
+            'You must provide the id or name of a home location or server as a keyword argument'
+        )
+
+    description = kwargs.get('description')
+
+    labels = kwargs.get('labels')
+    if labels is not None:
+        labels = {label.split(':')[0]: label.split(':')[1] for label in labels.split(',')}
+
+    name = kwargs.get('name')
+
     ret = {}
 
     try:
-        # TODO: Implement floating_ip_create
+        try:
+            home_location = hcloud_client.locations.get_by_id(home_location_id_or_name)
+        except APIException as e:
+            if e.code == 'invalid_input':
+                home_location = hcloud_client.locations.get_by_name(home_location_id_or_name)
+            else:
+                raise e
 
-    except APIError as e:
+        try:
+            server = hcloud_client.servers.get_by_id(server_id_or_name)
+        except APIException as e:
+            if e.code == 'invalid_input':
+                server = hcloud_client.servers.get_by_name(server_id_or_name)
+            else:
+                raise e
+
+        floating_ip_create_response = hcloud_client.floating_ips.create(
+            home_location=home_location,
+            server=server,
+            type=type,
+            description=description,
+            labels=labels,
+            name=name
+        )
+
+        floating_ip_create_action = _hcloud_wait_for_action(floating_ip_create_response.action)
+
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(floating_ip_create_action))
+    ret.update({'floating_ip': _hcloud_format_floating_ip(floating_ip_create_response.floating_ip)})
+
     return ret
+
 
 @refresh_hcloud_client
 def floating_ip_delete(kwargs=None, call=None):
@@ -545,15 +675,34 @@ def floating_ip_delete(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    id = kwargs.get('id')
+    name = kwargs.get('name')
+
+    if id is not None:
+        id_or_name = id
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_id
+    elif name is not None:
+        id_or_name = name
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide id or name of the floating ip to change the reverse dns entry of as keyword argument'
+        )
+
     ret = {}
 
     try:
-        # TODO: Implement floating_ip_delete
+        floating_ip = get_floating_ip_method(id_or_name)
 
-    except APIError as e:
+        floating_ip_deleted = hcloud_client.floating_ips.delete(floating_ip=floating_ip)
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update({'deleted': floating_ip_deleted})
+
     return ret
+
 
 @refresh_hcloud_client
 def floating_ip_unassign(kwargs=None, call=None):
@@ -565,15 +714,36 @@ def floating_ip_unassign(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    id = kwargs.get('id')
+    name = kwargs.get('name')
+
+    if id is not None:
+        id_or_name = id
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_id
+    elif name is not None:
+        id_or_name = name
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide id or name of the floating ip to change the reverse dns entry of as keyword argument'
+        )
+
     ret = {}
 
     try:
-        # TODO: Implement floating_ip_unassing
+        floating_ip = get_floating_ip_method(id_or_name)
 
-    except APIError as e:
+        floating_ip_unassign_action = _hcloud_wait_for_action(
+            hcloud_client.floating_ips.unassign(floating_ip=floating_ip)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(floating_ip_unassign_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def floating_ip_update(kwargs=None, call=None):
@@ -585,15 +755,48 @@ def floating_ip_update(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    id = kwargs.get('id')
+    name = kwargs.get('name')
+
+    if id is not None:
+        id_or_name = id
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_id
+    elif name is not None:
+        id_or_name = name
+        get_floating_ip_method = hcloud_client.floating_ips.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide id or name of the floating ip to change the reverse dns entry of as keyword argument'
+        )
+
+    description = kwargs.get('description')
+
+    labels = kwargs.get('labels')
+    if labels is not None:
+        labels = {label.split(':')[0]: label.split(':')[1] for label in labels.split(',')}
+
+    updated_name = kwargs.get('updated_name')
+
     ret = {}
 
     try:
-        # TODO: Implement floating_ip_update
+        floating_ip = get_floating_ip_method(id_or_name)
 
-    except APIError as e:
+        floating_ip_updated = hcloud_client.floating_ips.update(
+            floating_ip=floating_ip,
+            name=updated_name,
+            description=description,
+            labels=labels
+        )
+
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_floating_ip(floating_ip_updated))
+
     return ret
+
 
 @refresh_hcloud_client
 def image_change_protection(kwargs=None, call=None):
@@ -605,15 +808,38 @@ def image_change_protection(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    image_id = kwargs.get('id')
+    image_name = kwargs.get('name')
+
+    if image_id is not None:
+        id_or_name = image_id
+        get_image_method = hcloud_client.images.get_by_id
+    elif image_name is not None:
+        id_or_name = image_name
+        get_image_method = hcloud_client.images.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide image_id or image_name as keyword argument'
+        )
+
+    delete = kwargs.get('delete')
+
     ret = {}
 
     try:
-        # TODO: Implement image_change_protection
+        image = get_image_method(id_or_name)
 
-    except APIError as e:
+        image_change_protection_action = _hcloud_wait_for_action(
+            hcloud_client.images.change_protection(image=image, delete=delete)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(image_change_protection_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def image_delete(kwargs=None, call=None):
@@ -625,15 +851,34 @@ def image_delete(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    image_id = kwargs.get('id')
+    image_name = kwargs.get('name')
+
+    if image_id is not None:
+        id_or_name = image_id
+        get_image_method = hcloud_client.images.get_by_id
+    elif image_name is not None:
+        id_or_name = image_name
+        get_image_method = hcloud_client.images.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide image_id or image_name as keyword argument'
+        )
+
     ret = {}
 
     try:
-        # TODO: Implement image_delete
+        image = get_image_method(id_or_name)
 
-    except APIError as e:
+        image_deleted = hcloud_client.images.delete(image=image)
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update({'deleted': image_deleted})
+
     return ret
+
 
 @refresh_hcloud_client
 def image_update(kwargs=None, call=None):
@@ -645,15 +890,42 @@ def image_update(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    image_id = kwargs.get('id')
+    image_name = kwargs.get('name')
+
+    if image_id is not None:
+        id_or_name = image_id
+        get_image_method = hcloud_client.images.get_by_id
+    elif image_name is not None:
+        id_or_name = image_name
+        get_image_method = hcloud_client.images.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide image_id or image_name as keyword argument'
+        )
+
+    description = kwargs.get('description')
+
+    labels = kwargs.get('labels')
+    if labels is not None:
+        labels = {label.split(':')[0]: label.split(':')[1] for label in labels.split(',')}
+
+    type = kwargs.get('type')
+
     ret = {}
 
     try:
-        # TODO: Implement image_update
+        image = get_image_method(id_or_name)
 
-    except APIError as e:
+        updated_image = hcloud_client.images.update(image=image, type=type, description=description, labels=labels)
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_image(updated_image))
+
     return ret
+
 
 @refresh_hcloud_client
 def network_add_route(kwargs=None, call=None):
@@ -665,15 +937,50 @@ def network_add_route(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    network_id = kwargs.get('id')
+    network_name = kwargs.get('name')
+
+    if network_id is not None:
+        id_or_name = network_id
+        get_network_method = hcloud_client.networks.get_by_id
+    elif network_name is not None:
+        id_or_name = network_name
+        get_network_method = hcloud_client.networks.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide network_id or network_name as keyword argument'
+        )
+
+    destination = kwargs.get('destination')
+    if destination is None:
+        raise SaltCloudException(
+            'You must provide a destination as keyword argument'
+        )
+
+    gateway = kwargs.get('gateway')
+    if gateway is None:
+        raise SaltCloudException(
+            'You must provide a gateway as keyword argument'
+        )
+
+    network_route = NetworkRoute(destination=destination, gateway=gateway)
+
     ret = {}
 
     try:
-        # TODO: Implement network_add_route
+        network = get_network_method(id_or_name)
 
-    except APIError as e:
+        network_add_route_action = _hcloud_wait_for_action(
+            hcloud_client.networks.add_route(network=network, route=network_route)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_network(network_add_route))
+
     return ret
+
 
 @refresh_hcloud_client
 def network_add_subnet(kwargs=None, call=None):
@@ -685,15 +992,48 @@ def network_add_subnet(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    network_id = kwargs.get('id')
+    network_name = kwargs.get('name')
+
+    if network_id is not None:
+        id_or_name = network_id
+        get_network_method = hcloud_client.networks.get_by_id
+    elif network_name is not None:
+        id_or_name = network_name
+        get_network_method = hcloud_client.networks.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide network_id or network_name as keyword argument'
+        )
+
+    ip_range = kwargs.get('ip_range')
+    if ip_range is None:
+        raise SaltCloudException(
+            'You must provide ip_range as keyword argument'
+        )
+
+    type = kwargs.get('type')
+    network_zone = kwargs.get('network_zone')
+    gateway = kwargs.get('gateway')
+
+    network_subnet = NetworkSubnet(ip_range=ip_range, network_zone=network_zone, gateway=gateway, type=type)
+
     ret = {}
 
     try:
-        # TODO: Implement network_add_subnet
+        network = get_network_method(id_or_name)
 
-    except APIError as e:
+        network_add_subnet_action = _hcloud_wait_for_action(
+            hcloud_client.networks.add_subnet(network=network, subnet=network_subnet)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(network_add_subnet_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def network_change_ip_range(kwargs=None, call=None):
@@ -705,15 +1045,42 @@ def network_change_ip_range(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    network_id = kwargs.get('id')
+    network_name = kwargs.get('name')
+
+    if network_id is not None:
+        id_or_name = network_id
+        get_network_method = hcloud_client.networks.get_by_id
+    elif network_name is not None:
+        id_or_name = network_name
+        get_network_method = hcloud_client.networks.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide network_id or network_name as keyword argument'
+        )
+
+    ip_range = kwargs.get('ip_range')
+    if ip_range is None:
+        raise SaltCloudException(
+            'You must provide ip_range as keyword argument'
+        )
+
     ret = {}
 
     try:
-        # TODO: Implement network_change_ip_range
+        network = get_network_method(id_or_name)
 
-    except APIError as e:
+        network_change_ip_range_action = _hcloud_wait_for_action(
+            hcloud_client.networks.change_ip_range(network=network, ip_range=ip_range)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(network_change_ip_range_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def network_change_protection(kwargs=None, call=None):
@@ -725,15 +1092,38 @@ def network_change_protection(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    network_id = kwargs.get('id')
+    network_name = kwargs.get('name')
+
+    if network_id is not None:
+        id_or_name = network_id
+        get_network_method = hcloud_client.networks.get_by_id
+    elif network_name is not None:
+        id_or_name = network_name
+        get_network_method = hcloud_client.networks.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide network_id or network_name as keyword argument'
+        )
+
+    delete = kwargs.get('delete')
+
     ret = {}
 
     try:
-        # TODO: Implement network_change_protection
+        network = get_network_method(id_or_name)
 
-    except APIError as e:
+        network_change_protection_action = _hcloud_wait_for_action(
+            hcloud_client.networks.change_protection(network=network, delete=delete)
+        )
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_action(network_change_protection_action))
+
     return ret
+
 
 @refresh_hcloud_client
 def network_create(kwargs=None, call=None):
@@ -745,15 +1135,36 @@ def network_create(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    name = kwargs.get('name')
+    if name is None:
+        raise SaltCloudException(
+            'You must provide name as keyword argument'
+        )
+
+    ip_range = kwargs.get('ip_range')
+    if name is None:
+        raise SaltCloudException(
+            'You must provide ip_range as keyword argument'
+        )
+
+    # TODO: Write subnets and routes to doc (add them by the endpoint)
+
+    labels = kwargs.get('labels')
+    if labels is not None:
+        labels = {label.split(':')[0]: label.split(':')[1] for label in labels.split(',')}
+
     ret = {}
 
     try:
-        # TODO: Implement network_create
-
-    except APIError as e:
+        network_created = hcloud_client.networks.create(name=name, ip_range=ip_range, labels=labels)
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update(_hcloud_format_network(network_created))
+
     return ret
+
 
 @refresh_hcloud_client
 def network_delete(kwargs=None, call=None):
@@ -765,15 +1176,34 @@ def network_delete(kwargs=None, call=None):
     if kwargs is None:
         kwargs = {}
 
+    network_id = kwargs.get('id')
+    network_name = kwargs.get('name')
+
+    if network_id is not None:
+        id_or_name = network_id
+        get_network_method = hcloud_client.networks.get_by_id
+    elif network_name is not None:
+        id_or_name = network_name
+        get_network_method = hcloud_client.networks.get_by_name
+    else:
+        raise SaltCloudException(
+            'You must provide network_id or network_name as keyword argument'
+        )
+
     ret = {}
 
     try:
-        # TODO: Implement network_delete
+        network = get_network_method(id_or_name)
 
-    except APIError as e:
+        network_deleted = hcloud_client.networks.delete(network=network)
+    except APIException as e:
         log.error(e.message)
         return False
+
+    ret.update({'deleted': network_deleted})
+
     return ret
+
 
 @refresh_hcloud_client
 def network_delete_route(kwargs=None, call=None):
@@ -789,11 +1219,13 @@ def network_delete_route(kwargs=None, call=None):
 
     try:
         # TODO: Implement network_delete_route
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def network_delete_subnet(kwargs=None, call=None):
@@ -809,11 +1241,13 @@ def network_delete_subnet(kwargs=None, call=None):
 
     try:
         # TODO: Implement network_delete_subnet
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def network_update(kwargs=None, call=None):
@@ -829,11 +1263,13 @@ def network_update(kwargs=None, call=None):
 
     try:
         # TODO: Implement network_update
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def ssh_key_create(kwargs=None, call=None):
@@ -849,11 +1285,13 @@ def ssh_key_create(kwargs=None, call=None):
 
     try:
         # TODO: Implement ssh_key_create
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def ssh_key_update(kwargs=None, call=None):
@@ -869,11 +1307,13 @@ def ssh_key_update(kwargs=None, call=None):
 
     try:
         # TODO: Implement ssh_key_update
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def ssh_key_delete(kwargs=None, call=None):
@@ -889,11 +1329,13 @@ def ssh_key_delete(kwargs=None, call=None):
 
     try:
         # TODO: Implement ssh_key_delete
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def volume_change_protection(kwargs=None, call=None):
@@ -909,11 +1351,13 @@ def volume_change_protection(kwargs=None, call=None):
 
     try:
         # TODO: Implement volume_change_protection
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def volume_create(kwargs=None, call=None):
@@ -929,11 +1373,13 @@ def volume_create(kwargs=None, call=None):
 
     try:
         # TODO: Implement volume_create
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def volume_delete(kwargs=None, call=None):
@@ -949,11 +1395,13 @@ def volume_delete(kwargs=None, call=None):
 
     try:
         # TODO: Implement volume_delete
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def volume_detach(kwargs=None, call=None):
@@ -969,11 +1417,13 @@ def volume_detach(kwargs=None, call=None):
 
     try:
         # TODO: Implement volume_detach
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def volume_resize(kwargs=None, call=None):
@@ -989,11 +1439,13 @@ def volume_resize(kwargs=None, call=None):
 
     try:
         # TODO: Implement volume_resize
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def volume_update(kwargs=None, call=None):
@@ -1009,11 +1461,13 @@ def volume_update(kwargs=None, call=None):
 
     try:
         # TODO: Implement volume_update
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
     return ret
+
 
 @refresh_hcloud_client
 def enable_rescue_mode(name, kwargs=None, call=None):
@@ -1036,7 +1490,8 @@ def enable_rescue_mode(name, kwargs=None, call=None):
     try:
         server = hcloud_client.servers.get_by_name(name)
 
-        enable_rescue_mode_response = hcloud_client.servers.enable_rescue(server=server, type=rescue_type, ssh_keys=ssh_keys)
+        enable_rescue_mode_response = hcloud_client.servers.enable_rescue(server=server, type=rescue_type,
+                                                                          ssh_keys=ssh_keys)
 
         rescue_mode_action = _hcloud_wait_for_action(enable_rescue_mode_response.action)
         rescue_mode_root_password = enable_rescue_mode_response.root_password
@@ -1544,6 +1999,7 @@ def change_alias_ips(name, kwargs=None, call=None):
 
     return ret
 
+
 @refresh_hcloud_client
 def assign_floating_ip(name, kwargs=None, call=None):
     if call == 'function':
@@ -1558,12 +2014,14 @@ def assign_floating_ip(name, kwargs=None, call=None):
 
     try:
         # TODO: Implement assign_floating_ip
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
 
     return ret
+
 
 @refresh_hcloud_client
 def attach_volume(name, kwargs=None, call=None):
@@ -1579,12 +2037,14 @@ def attach_volume(name, kwargs=None, call=None):
 
     try:
         # TODO: Implement attach_volume
+        pass
 
-    except APIError as e:
+    except APIException as e:
         log.error(e.message)
         return False
 
     return ret
+
 
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
@@ -1806,3 +2266,22 @@ def _hcloud_format_network(network: Network):
     }
 
     return formatted_network
+
+
+def _hcloud_format_floating_ip(floating_ip: FloatingIP):
+    formatted_floating_ip = {
+        'id': floating_ip.id,
+        'description': floating_ip.description,
+        'ip': floating_ip.ip,
+        'type': floating_ip.type,
+        'server': _hcloud_format_server(floating_ip.server) if floating_ip.server is not None else None,
+        'dns_ptr': floating_ip.dns_ptr,
+        'home_location': _hcloud_format_location(floating_ip.home_location),
+        'blocked': floating_ip.blocked,
+        'protection': floating_ip.protection,
+        'labels': floating_ip.labels,
+        'created': floating_ip.created.strftime('%c'),
+        'name': floating_ip.name
+    }
+
+    return formatted_floating_ip
