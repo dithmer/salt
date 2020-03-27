@@ -475,6 +475,545 @@ def avail_ssh_keys(call=None):
 
     return formatted_ssh_keys
 
+@refresh_hcloud_client
+def floating_ip_change_dns_ptr(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function floating_ip_change_dns_ptr must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement floating_ip_change_dns_ptr
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def floating_ip_change_protection(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function floating_ip_change_protection must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement floating_ip_change_protection
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def floating_ip_create(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function floating_ip_create must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement floating_ip_create
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def floating_ip_delete(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function floating_ip_delete must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement floating_ip_delete
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def floating_ip_unassign(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function floating_ip_unassing must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement floating_ip_unassing
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def floating_ip_update(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function floating_ip_update must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement floating_ip_update
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def image_change_protection(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function image_change_protection must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement image_change_protection
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def image_delete(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function image_delete must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement image_delete
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def image_update(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function image_update must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement image_update
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_add_route(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_add_route must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_add_route
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_add_subnet(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_add_subnet must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_add_subnet
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_change_ip_range(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_change_ip_range must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_change_ip_range
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_change_protection(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_change_protection must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_change_protection
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_create(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_create must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_create
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_delete(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_delete must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_delete
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_delete_route(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_delete_route must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_delete_route
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_delete_subnet(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_delete_subnet must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_delete_subnet
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def network_update(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function network_update must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement network_update
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def ssh_key_create(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function ssh_key_create must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement ssh_key_create
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def ssh_key_update(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function ssh_key_update must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement ssh_key_update
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def ssh_key_delete(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function ssh_key_delete must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement ssh_key_delete
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def volume_change_protection(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function volume_change_protection must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement volume_change_protection
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def volume_create(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function volume_create must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement volume_create
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def volume_delete(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function volume_delete must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement volume_delete
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def volume_detach(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function volume_detach must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement volume_detach
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def volume_resize(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function volume_resize must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement volume_resize
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
+
+@refresh_hcloud_client
+def volume_update(kwargs=None, call=None):
+    if call == 'action':
+        raise SaltCloudException(
+            'The function volume_update must be called with -f or --function'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement volume_update
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+    return ret
 
 @refresh_hcloud_client
 def enable_rescue_mode(name, kwargs=None, call=None):
@@ -1005,6 +1544,47 @@ def change_alias_ips(name, kwargs=None, call=None):
 
     return ret
 
+@refresh_hcloud_client
+def assign_floating_ip(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action assign_floating_ip must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement assign_floating_ip
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+
+    return ret
+
+@refresh_hcloud_client
+def attach_volume(name, kwargs=None, call=None):
+    if call == 'function':
+        raise SaltCloudException(
+            'The action attach_volume must be called with -a or --action'
+        )
+
+    if kwargs is None:
+        kwargs = {}
+
+    ret = {}
+
+    try:
+        # TODO: Implement attach_volume
+
+    except APIError as e:
+        log.error(e.message)
+        return False
+
+    return ret
 
 def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     (local_algorithm, local_key, *local_host) = local_ssh_public_key.split()
