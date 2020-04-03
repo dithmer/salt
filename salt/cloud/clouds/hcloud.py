@@ -977,7 +977,7 @@ def network_add_route(kwargs=None, call=None):
         log.error(e.message)
         return False
 
-    ret.update(_hcloud_format_network(network_add_route))
+    ret.update(_hcloud_format_action(network_add_route_action))
 
     return ret
 
@@ -2065,7 +2065,7 @@ def _hcloud_wait_for_action(action: Action):
     while action.status == 'running':
         action = hcloud_client.actions.get_by_id(action.id)
         log.info('Progress: {0:3d}%'.format(action.progress))
-        time.sleep(1)
+        time.sleep(2)
     return action
 
 
