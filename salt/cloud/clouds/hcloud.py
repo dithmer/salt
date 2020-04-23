@@ -191,6 +191,7 @@ def create(vm_):
 def avail_locations(call=None):
     '''
     Return available hcloud locations.
+    https://docs.hetzner.cloud/#locations-get-all-locations
 
     CLI-Example
 
@@ -211,6 +212,7 @@ def avail_locations(call=None):
 def avail_images(call=None):
     '''
     Return available hcloud images.
+    https://docs.hetzner.cloud/#images-get-all-images
 
     CLI-Example
 
@@ -245,6 +247,7 @@ def avail_images(call=None):
 def avail_sizes(call=None):
     '''
     Return available hcloud vm sizes
+    https://docs.hetzner.cloud/#server-types
 
     CLI-Example
 
@@ -273,6 +276,7 @@ def avail_sizes(call=None):
 def destroy(name, call=None):
     '''
     Destroy a hcloud vm by name.
+    https://docs.hetzner.cloud/#servers-delete-a-server
 
     name
         The name of VM to be be destroyed.
@@ -344,6 +348,7 @@ def destroy(name, call=None):
 def list_nodes(call=None):
     '''
     List hcloud vms, keeping only the most important informations.
+    https://docs.hetzner.cloud/#servers-get-all-servers
 
     CLI Example:
 
@@ -365,6 +370,7 @@ def list_nodes(call=None):
 def list_nodes_full(call=None):
     '''
     List full detailed hcloud vms.
+    https://docs.hetzner.cloud/#servers-get-all-servers
 
     CLI Example:
 
@@ -421,6 +427,7 @@ def show_instance(name, call=None):
 def boot_instance(name, call=None):
     '''
     Start a hcloud vm
+    https://docs.hetzner.cloud/#server-actions-power-on-a-server
 
     name
         name of the vm to start
@@ -448,6 +455,8 @@ def boot_instance(name, call=None):
 def shutdown_instance(name, kwargs=None, call=None):
     '''
     Hard (power off) or soft (acpi event) stop a hcloud vm
+    https://docs.hetzner.cloud/#server-actions-shutdown-a-server
+    https://docs.hetzner.cloud/#server-actions-power-off-a-server
 
     name
         name of the vm to stop
@@ -487,6 +496,8 @@ def shutdown_instance(name, kwargs=None, call=None):
 def reboot_instance(name, kwargs=None, call=None):
     '''
     Hard (power off) or soft (acpi event) reboot a hcloud vm
+    https://docs.hetzner.cloud/#server-actions-soft-reboot-a-server
+    https://docs.hetzner.cloud/#server-actions-reset-a-server
 
     name
         name of the vm to reboot
@@ -526,6 +537,7 @@ def reboot_instance(name, kwargs=None, call=None):
 def avail_datacenters(call=None):
     '''
     List all available datacenters, because hcloud utilizes locations OR datacenters
+    https://docs.hetzner.cloud/#datacenters-get-all-datacenters
 
     CLI-Example
 
@@ -547,6 +559,7 @@ def avail_datacenters(call=None):
 def avail_ssh_keys(call=None):
     '''
     List all available ssh keys added to the hcloud project
+    https://docs.hetzner.cloud/#ssh-keys-get-all-ssh-keys
 
     CLI-Exampe
 
@@ -567,6 +580,7 @@ def avail_ssh_keys(call=None):
 def avail_floating_ips(kwargs=None, call=None):
     '''
     List all available floating ips
+    https://docs.hetzner.cloud/#floating-ips-get-all-floating-ips
 
     name
         Can be used to filter floating ips by their name
@@ -599,6 +613,7 @@ def avail_floating_ips(kwargs=None, call=None):
 def floating_ip_change_dns_ptr(kwargs=None, call=None):
     '''
     Change reverse dns entry for a floating ip
+    https://docs.hetzner.cloud/#floating-ip-actions-change-reverse-dns-entry-for-a-floating-ip
 
     floating_ip
         (required) Id or name of the floating ip, to change the reverse dns entry of
@@ -653,6 +668,7 @@ def floating_ip_change_dns_ptr(kwargs=None, call=None):
 def floating_ip_change_protection(kwargs=None, call=None):
     '''
     Change the protection configuration of the floating ip
+    https://docs.hetzner.cloud/#floating-ip-actions-change-floating-ip-protection
 
     floating_ip
         (required) id or name of the floating ip
@@ -696,6 +712,7 @@ def floating_ip_change_protection(kwargs=None, call=None):
 def floating_ip_create(kwargs=None, call=None):
     '''
     Creates a new floating ip.
+    https://docs.hetzner.cloud/#floating-ips-create-a-floating-ip
 
     type
         (required) "ipv4" or "ipv6"
@@ -783,6 +800,7 @@ def floating_ip_create(kwargs=None, call=None):
 def floating_ip_delete(kwargs=None, call=None):
     '''
     Delete a floating ip
+    https://docs.hetzner.cloud/#floating-ips-delete-a-floating-ip
 
     floating_ip
         (required) name or id of the floating ip to delete
@@ -819,6 +837,7 @@ def floating_ip_delete(kwargs=None, call=None):
 def floating_ip_unassign(kwargs=None, call=None):
     '''
     Unassign a floating ip
+    https://docs.hetzner.cloud/#floating-ip-actions-unassign-a-floating-ip
 
     floating_ip
         (required) name or id of the floating ip to unassign
@@ -857,6 +876,7 @@ def floating_ip_unassign(kwargs=None, call=None):
 def floating_ip_update(kwargs=None, call=None):
     '''
     Update a floating ip
+    https://docs.hetzner.cloud/#floating-ips-update-a-floating-ip
 
     floating_ip
         (required) name or id of the floating ip to update
@@ -913,6 +933,7 @@ def floating_ip_update(kwargs=None, call=None):
 def image_change_protection(kwargs=None, call=None):
     '''
     Change protection of an image
+    https://docs.hetzner.cloud/#image-actions-change-image-protection
 
     image
         (required) name or id of the image to change the protection of
@@ -955,6 +976,7 @@ def image_change_protection(kwargs=None, call=None):
 def image_delete(kwargs=None, call=None):
     '''
     Delete an image
+    https://docs.hetzner.cloud/#images-delete-an-image
 
     image
         (required) name or id of the image to delete
@@ -991,6 +1013,7 @@ def image_delete(kwargs=None, call=None):
 def image_update(kwargs=None, call=None):
     '''
     Update an image
+    https://docs.hetzner.cloud/#images-update-an-image
 
     image
         (required) name or id of the image to update
@@ -1045,6 +1068,7 @@ def image_update(kwargs=None, call=None):
 def network_add_route(kwargs=None, call=None):
     '''
     Add route to network
+    https://docs.hetzner.cloud/#network-actions-add-a-route-to-a-network
 
     network
         (required) id or name of the network
@@ -1491,6 +1515,7 @@ def network_update(kwargs=None, call=None):
 def ssh_key_create(kwargs=None, call=None):
     '''
     Create a ssh key
+    https://docs.hetzner.cloud/#ssh-keys-create-an-ssh-key
 
     name
         (required) the name of the new ssh key
@@ -1544,6 +1569,7 @@ def ssh_key_create(kwargs=None, call=None):
 def ssh_key_update(kwargs=None, call=None):
     '''
     Update a ssh key
+    https://docs.hetzner.cloud/#ssh-keys-update-an-ssh-key
 
     ssh_key
         (required) name or id of the ssh key
@@ -1589,6 +1615,7 @@ def ssh_key_update(kwargs=None, call=None):
 def ssh_key_delete(kwargs=None, call=None):
     '''
     Delete a ssh key
+    https://docs.hetzner.cloud/#ssh-keys-delete-an-ssh-key
 
     ssh_key
         (required) name or id of the ssh key to delete
@@ -1621,6 +1648,7 @@ def ssh_key_delete(kwargs=None, call=None):
 def volume_change_protection(kwargs=None, call=None):
     '''
     Change protection state of a volume
+    https://docs.hetzner.cloud/#volume-actions-change-volume-protection
 
     volume
         (required) name or id of the volume
@@ -1659,6 +1687,7 @@ def volume_change_protection(kwargs=None, call=None):
 def volume_create(kwargs=None, call=None):
     '''
     Create a new volume
+    https://docs.hetzner.cloud/#volumes-create-a-volume
 
     size
         (required) size of the volume in gb, only full numbers
@@ -1740,6 +1769,7 @@ def volume_create(kwargs=None, call=None):
 def volume_delete(kwargs=None, call=None):
     '''
     Delete a volume
+    https://docs.hetzner.cloud/#volumes-delete-a-volume
 
     volume
         (required) name or id the volume
@@ -1772,6 +1802,7 @@ def volume_delete(kwargs=None, call=None):
 def volume_detach(kwargs=None, call=None):
     '''
     Detach a volume
+    https://docs.hetzner.cloud/#volume-actions-detach-volume
 
     volume
         (required) name or id of the volume
@@ -1806,6 +1837,7 @@ def volume_detach(kwargs=None, call=None):
 def volume_resize(kwargs=None, call=None):
     '''
     Resize a volume
+    https://docs.hetzner.cloud/#volume-actions-resize-volume
 
     volume
         (required) name or id of the volume
@@ -1844,6 +1876,7 @@ def volume_resize(kwargs=None, call=None):
 def volume_update(kwargs=None, call=None):
     '''
     Update a volume
+    https://docs.hetzner.cloud/#volumes-update-a-volume
 
     volume
         (required) name or id of the volume
@@ -2513,6 +2546,7 @@ def change_alias_ips(name, kwargs=None, call=None):
 def assign_floating_ip(name, kwargs=None, call=None):
     '''
     Assign a floating ip to a server
+    https://docs.hetzner.cloud/#floating-ip-actions-assign-a-floating-ip-to-a-server
 
     floating_ip
         (required) id or name of the floating ip
