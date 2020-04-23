@@ -1,4 +1,39 @@
 # -*- coding: utf-8 -*-
+"""
+"Hetzner Public Cloud (HPC - https://hetzner.cloud/)"-driver using the HPC-Pythonlib
+(https://hcloud-python.readthedocs.io/en/latest/index.html).
+====================================================================================
+
+This driver is used to control VPS in a specific ``api_key``-defined project in the hetzner public cloud.
+
+To use this driver you need to set up at least one provider in ``/etc/salt/cloud.providers`` or e.g.
+``/etc/salt/cloud.providers.d/hcloud.conf`` and one profile in ``/etc/salt/cloud.profiles`` or e.g.
+``/etc/salt/cloud.profiles.d/hcloud.conf``.
+
+The provider needs to have the attributes ``api_key``, ``ssh_keyfile`` and ``ssh_keyfile_public``. Newly created vps can
+only be bootstrapped if the ``ssh_keyfile_public`` is the public key of the servers private key provided with
+``ssh_keyfile``. ``api_key`` can be generated in the hetzner public cloud webinterface and is project-wide valid.
+
+provider-example:
+
+.. code-block:: yaml
+    hcloud-config:
+        driver: hcloud
+        ssh_keyfile: '/root/.ssh/id_rsa'
+        ssh_keyfile_public: '/root/.ssh/id_rsa.pub'
+        api_key: '$GENERATED_API_KEY'
+        minion:
+            master: 'salt-master.example.org'
+
+profile-example:
+
+.. code-block:: yaml
+    hcloud-test:
+        provider: hcloud-config
+        size: cx11
+        image: debian-10
+
+"""
 from __future__ import absolute_import, print_function, unicode_literals
 import functools
 import logging
@@ -106,7 +141,7 @@ def get_configured_provider():
 @hcloud_api
 def create(vm_):
     """
-    Create a single hcloud VM
+    Create a single hetzner public cloud instance
     """
     name = vm_['name']
     try:
