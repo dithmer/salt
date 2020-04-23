@@ -7,16 +7,8 @@ import time
 import hcloud
 from hcloud.hcloud import APIException
 from hcloud.server_types.domain import ServerType
-from hcloud.servers.domain import Server
 from hcloud.images.domain import Image
-from hcloud.actions.domain import Action
-from hcloud.locations.domain import Location
-from hcloud.datacenters.domain import Datacenter
-from hcloud.ssh_keys.domain import SSHKey
-from hcloud.isos.domain import Iso
-from hcloud.networks.domain import Network, NetworkSubnet, NetworkRoute
-from hcloud.floating_ips.domain import FloatingIP
-from hcloud.volumes.domain import Volume
+from hcloud.networks.domain import NetworkSubnet, NetworkRoute
 
 import salt.config as config
 import salt.utils.files
@@ -33,10 +25,10 @@ hcloud_client = None
 
 
 def hcloud_api(func):
-    '''
+    """
     Decorator for all functions which uses the hcloud-api. It refreshes the token if it was changed in the provider
     and wraps the general error handling.
-    '''
+    """
 
     @functools.wraps(func.__name__)
     def wrapped_hcloud_call(*args, **kwargs):
@@ -60,6 +52,39 @@ def hcloud_api(func):
     return wrapped_hcloud_call
 
 
+def saltcloud_function(func):
+    """
+    Decorator for all salt-cloud functions
+    """
+
+    @functools.wraps(func.__name__)
+    def wrapped_saltcloud_function(*args, **kwargs):
+        if kwargs.get('call') == 'action':
+            raise SaltCloudException(
+                '{0} must be called with -f or --function'.format(func.__name__)
+            )
+
+        return func(*args, **kwargs)
+
+    return wrapped_saltcloud_function
+
+
+def saltcloud_action(func):
+    """
+    Decorator for all salt-cloud functions
+    """
+
+    def wrapped_saltcloud_action(*args, **kwargs):
+        if kwargs.get('call') == 'function':
+            raise SaltCloudException(
+                '{0} must be called with -a or --action'.format(func.__name__)
+            )
+
+        return func(*args, **kwargs)
+
+    return wrapped_saltcloud_action
+
+
 def __virtual__():
     if get_configured_provider() is False:
         return False
@@ -80,9 +105,9 @@ def get_configured_provider():
 
 @hcloud_api
 def create(vm_):
-    '''
+    """
     Create a single hcloud VM
-    '''
+    """
     name = vm_['name']
     try:
         # Check for required profile parameters before sending any API calls.
@@ -144,7 +169,8 @@ def create(vm_):
 
     while True:
         server = hcloud_client.servers.get_by_id(
-            created_server_response.server.id)
+            created_server_response.server.id
+        )
 
         if server.status == "running":
             log.info('Server {0} is up running now.'.format(server.name))
@@ -153,7 +179,7 @@ def create(vm_):
             log.info(
                 'Waiting for server {0} to be running: {1}'.format(server.name, server.status)
             )
-            time.sleep(1)
+            time.sleep(2)
 
     vm_['ssh_host'] = server.public_net.ipv4.ip
 
@@ -187,9 +213,10 @@ def create(vm_):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def avail_locations(call=None):
-    '''
+def avail_locations():
+    """
     Return available hcloud locations.
     https://docs.hetzner.cloud/#locations-get-all-locations
 
@@ -199,18 +226,14 @@ def avail_locations(call=None):
 
         salt-cloud --list-locations my-hcloud-provider
         salt-cloud -f avail_locations my-hcloud-provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function list_locations must be called with -f or --function'
-        )
-
+    """
     return [_hcloud_format_location(location) for location in hcloud_client.locations.get_all()]
 
 
+@saltcloud_function
 @hcloud_api
-def avail_images(call=None):
-    '''
+def avail_images():
+    """
     Return available hcloud images.
     https://docs.hetzner.cloud/#images-get-all-images
 
@@ -220,12 +243,7 @@ def avail_images(call=None):
 
         salt-cloud --list-images my-hcloud-provider
         salt-cloud -f avail_images my-hcloud-provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The avail_images function must be called with -f or --function.'
-        )
-
+    """
     images = hcloud_client.images.get_all()
 
     formatted_images = {}
@@ -243,9 +261,10 @@ def avail_images(call=None):
     return formatted_images
 
 
+@saltcloud_function
 @hcloud_api
-def avail_sizes(call=None):
-    '''
+def avail_sizes():
+    """
     Return available hcloud vm sizes
     https://docs.hetzner.cloud/#server-types
 
@@ -255,12 +274,7 @@ def avail_sizes(call=None):
 
         salt-cloud --list-sizes my-hcloud-provider
         salt-cloud -f avail_sizes my-hlocud-provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The avail_sizes function must be called with -f or --function.'
-        )
-
+    """
     server_types = hcloud_client.server_types.get_all()
 
     formatted_server_types = {}
@@ -272,9 +286,10 @@ def avail_sizes(call=None):
     return formatted_server_types
 
 
+@saltcloud_action
 @hcloud_api
-def destroy(name, call=None):
-    '''
+def destroy(name):
+    """
     Destroy a hcloud vm by name.
     https://docs.hetzner.cloud/#servers-delete-a-server
 
@@ -286,13 +301,7 @@ def destroy(name, call=None):
     .. code-block:: bash
 
         salt-cloud -d vm_name
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The destroy action must be called with -d, --destroy, '
-            '-a or --action.'
-        )
-
+    """
     __utils__['cloud.fire_event'](
         'event',
         'destroying instance',
@@ -344,9 +353,10 @@ def destroy(name, call=None):
     return delete_action_dict
 
 
+@saltcloud_function
 @hcloud_api
-def list_nodes(call=None):
-    '''
+def list_nodes():
+    """
     List hcloud vms, keeping only the most important informations.
     https://docs.hetzner.cloud/#servers-get-all-servers
 
@@ -357,18 +367,14 @@ def list_nodes(call=None):
         salt-cloud -Q
         salt-cloud --query
         salt-cloud -f list_nodes my-hcloud-provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The list_nodes function must be called with -f or --function.'
-        )
-
+    """
     return {server.name: _hcloud_format_server(server) for server in hcloud_client.servers.get_all()}
 
 
+@saltcloud_function
 @hcloud_api
-def list_nodes_full(call=None):
-    '''
+def list_nodes_full():
+    """
     List full detailed hcloud vms.
     https://docs.hetzner.cloud/#servers-get-all-servers
 
@@ -379,30 +385,27 @@ def list_nodes_full(call=None):
         salt-cloud -F
         salt-cloud --full-query
         salt-cloud -f list_nodes_full my-hcloud-provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The list_nodes_full function must be called with -f or --function'
-        )
-
+    """
     return {server.name: _hcloud_format_server(server, full=True) for server in hcloud_client.servers.get_all()}
 
 
+@saltcloud_function
 @hcloud_api
-def list_nodes_select(call=None):
-    '''
+def list_nodes_select():
+    """
     List the VMs that are on the provider, with select fields
 
     Taken like this from https://docs.saltstack.com/en/latest/topics/cloud/cloud.html#the-list-nodes-select-function
-    '''
+    """
     return salt.utils.cloud.list_nodes_select(
         list_nodes_full('function'), __opts__['query.selection'], call,
     )
 
 
+@saltcloud_action
 @hcloud_api
-def show_instance(name, call=None):
-    '''
+def show_instance(name):
+    """
     Return detailed information of a particular vm
 
     name
@@ -412,20 +415,16 @@ def show_instance(name, call=None):
 
     .. code-block:: bash
         salt-cloud -a show_instance vm_name
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The show_instance action must be called with -a or --action'
-        )
-
+    """
     server = hcloud_client.servers.get_by_name(name)
 
     return _hcloud_format_server(server, full=True)
 
 
+@saltcloud_action
 @hcloud_api
-def boot_instance(name, call=None):
-    '''
+def boot_instance(name):
+    """
     Start a hcloud vm
     https://docs.hetzner.cloud/#server-actions-power-on-a-server
 
@@ -436,12 +435,7 @@ def boot_instance(name, call=None):
 
     .. code-block:: bash
         salt-cloud -a boot_instance vm_name
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The function boot_instance must be called with -a or --action'
-        )
-
+    """
     boot_action = _hcloud_wait_for_action(
         hcloud_client.servers.power_on(
             hcloud_client.servers.get_by_name(name)
@@ -451,9 +445,10 @@ def boot_instance(name, call=None):
     return _hcloud_format_action(boot_action)
 
 
+@saltcloud_action
 @hcloud_api
-def shutdown_instance(name, kwargs=None, call=None):
-    '''
+def shutdown_instance(name, kwargs=None):
+    """
     Hard (power off) or soft (acpi event) stop a hcloud vm
     https://docs.hetzner.cloud/#server-actions-shutdown-a-server
     https://docs.hetzner.cloud/#server-actions-power-off-a-server
@@ -468,16 +463,11 @@ def shutdown_instance(name, kwargs=None, call=None):
     .. code-block:: bash
         salt-cloud -a shutdown_instance vm_name
         salt-cloud -a shutdown_instance vm_name hard=True
-    '''
+    """
     if kwargs is None:
         kwargs = {
             'hard': False
         }
-
-    if call == 'function':
-        raise SaltCloudException(
-            'The action shutdown_instance must be called with -a or --action'
-        )
 
     shutdown_method = hcloud_client.servers.shutdown
 
@@ -492,9 +482,10 @@ def shutdown_instance(name, kwargs=None, call=None):
     return _hcloud_format_action(shutdown_action)
 
 
+@saltcloud_action
 @hcloud_api
-def reboot_instance(name, kwargs=None, call=None):
-    '''
+def reboot_instance(name, kwargs=None):
+    """
     Hard (power off) or soft (acpi event) reboot a hcloud vm
     https://docs.hetzner.cloud/#server-actions-soft-reboot-a-server
     https://docs.hetzner.cloud/#server-actions-reset-a-server
@@ -509,16 +500,11 @@ def reboot_instance(name, kwargs=None, call=None):
     .. code-block:: bash
         salt-cloud -a reboot_instance vm_name
         salt-cloud -a reboot_instance vm_name hard=True
-    '''
+    """
     if kwargs is None:
         kwargs = {
             'hard': False
         }
-
-    if call == 'function':
-        raise SaltCloudException(
-            'The action reboot_instance must be called with -a or --action'
-        )
 
     reboot_method = hcloud_client.servers.reboot
 
@@ -533,9 +519,10 @@ def reboot_instance(name, kwargs=None, call=None):
     return _hcloud_format_action(reboot_action)
 
 
+@saltcloud_function
 @hcloud_api
-def avail_datacenters(call=None):
-    '''
+def avail_datacenters():
+    """
     List all available datacenters, because hcloud utilizes locations OR datacenters
     https://docs.hetzner.cloud/#datacenters-get-all-datacenters
 
@@ -543,21 +530,17 @@ def avail_datacenters(call=None):
 
     .. code-block:: bash
         salt-cloud -f avail_datacenters my_hcloud_provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function list_datacenters must be called with -f or --function'
-        )
-
+    """
     fromatted_datacenters = [_hcloud_format_datacenter(datacenter) for datacenter in
                              hcloud_client.datacenters.get_all()]
 
     return fromatted_datacenters
 
 
+@saltcloud_function
 @hcloud_api
-def avail_ssh_keys(call=None):
-    '''
+def avail_ssh_keys():
+    """
     List all available ssh keys added to the hcloud project
     https://docs.hetzner.cloud/#ssh-keys-get-all-ssh-keys
 
@@ -565,20 +548,16 @@ def avail_ssh_keys(call=None):
 
     .. code-block:: bash
         salt-cloud -f avail_ssh_keys my_hcloud_provider
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function avail_ssh_keys must be called with -f or --function'
-        )
-
+    """
     formatted_ssh_keys = [_hcloud_format_ssh_keys(ssh_key) for ssh_key in hcloud_client.ssh_keys.get_all()]
 
     return formatted_ssh_keys
 
 
+@saltcloud_function
 @hcloud_api
-def avail_floating_ips(kwargs=None, call=None):
-    '''
+def avail_floating_ips(kwargs=None):
+    """
     List all available floating ips
     https://docs.hetzner.cloud/#floating-ips-get-all-floating-ips
 
@@ -591,12 +570,7 @@ def avail_floating_ips(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f avail_floating_ips my_hcloud_provider name='NameFilter' label_selector='LabelFilter'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function avail_floating_ips must be called with -f or --function'
-        )
-
+    """
     if kwargs is None:
         kwargs = {}
 
@@ -608,10 +582,10 @@ def avail_floating_ips(kwargs=None, call=None):
     return [_hcloud_format_floating_ip(floating_ip) for floating_ip in floating_ips]
 
 
-
+@saltcloud_function
 @hcloud_api
-def floating_ip_change_dns_ptr(kwargs=None, call=None):
-    '''
+def floating_ip_change_dns_ptr(kwargs=None):
+    """
     Change reverse dns entry for a floating ip
     https://docs.hetzner.cloud/#floating-ip-actions-change-reverse-dns-entry-for-a-floating-ip
 
@@ -627,12 +601,7 @@ def floating_ip_change_dns_ptr(kwargs=None, call=None):
     .. code-block:: bash
         salt-cloud -f floating_ip_change_dns_ptr id='FloatingIpId' ip='1.1.1.1'
         salt-cloud -f floating_ip_change_dns_ptr name='FloatingIpName' ip='1.1.1.1' dns_ptr='example.com'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function floating_ip_change_dns_ptr must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -664,9 +633,10 @@ def floating_ip_change_dns_ptr(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def floating_ip_change_protection(kwargs=None, call=None):
-    '''
+def floating_ip_change_protection(kwargs=None):
+    """
     Change the protection configuration of the floating ip
     https://docs.hetzner.cloud/#floating-ip-actions-change-floating-ip-protection
 
@@ -680,12 +650,7 @@ def floating_ip_change_protection(kwargs=None, call=None):
     .. code-block:: bash
         salt-cloud -f floating_ip_change_protection id='FloatingIpId'
         salt-cloud -f floating_ip_change_protection name='FloatingIpName' delete=True
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function floating_ip_change_protection must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -708,9 +673,10 @@ def floating_ip_change_protection(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def floating_ip_create(kwargs=None, call=None):
-    '''
+def floating_ip_create(kwargs=None):
+    """
     Creates a new floating ip.
     https://docs.hetzner.cloud/#floating-ips-create-a-floating-ip
 
@@ -731,12 +697,7 @@ def floating_ip_create(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f floating_ip_create name=floating_ip_example labels=key1:value1,key2:value2 server=my_instance
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function floating_ip_create must be called with -f or --function'
-        )
-
+    """
     if kwargs is None:
         kwargs = {}
 
@@ -796,9 +757,10 @@ def floating_ip_create(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def floating_ip_delete(kwargs=None, call=None):
-    '''
+def floating_ip_delete(kwargs=None):
+    """
     Delete a floating ip
     https://docs.hetzner.cloud/#floating-ips-delete-a-floating-ip
 
@@ -809,12 +771,7 @@ def floating_ip_delete(kwargs=None, call=None):
 
     .. code-block:: bash
             salt-cloud -f floating_ip_delete floating_ip=my_floating_ip
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function floating_ip_delete must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -833,9 +790,10 @@ def floating_ip_delete(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def floating_ip_unassign(kwargs=None, call=None):
-    '''
+def floating_ip_unassign(kwargs=None):
+    """
     Unassign a floating ip
     https://docs.hetzner.cloud/#floating-ip-actions-unassign-a-floating-ip
 
@@ -846,12 +804,7 @@ def floating_ip_unassign(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f floating_ip_unassign floating_ip=my_floating_ip
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function floating_ip_unassing must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -872,9 +825,10 @@ def floating_ip_unassign(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def floating_ip_update(kwargs=None, call=None):
-    '''
+def floating_ip_update(kwargs=None):
+    """
     Update a floating ip
     https://docs.hetzner.cloud/#floating-ips-update-a-floating-ip
 
@@ -892,12 +846,7 @@ def floating_ip_update(kwargs=None, call=None):
             floating_ip=my_floating_ip \
             description='New Description' \
             labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function floating_ip_update must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -929,9 +878,10 @@ def floating_ip_update(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def image_change_protection(kwargs=None, call=None):
-    '''
+def image_change_protection(kwargs=None):
+    """
     Change protection of an image
     https://docs.hetzner.cloud/#image-actions-change-image-protection
 
@@ -944,12 +894,7 @@ def image_change_protection(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f image_change_protection image=my_image delete=True
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function image_change_protection must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -972,9 +917,10 @@ def image_change_protection(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def image_delete(kwargs=None, call=None):
-    '''
+def image_delete(kwargs=None):
+    """
     Delete an image
     https://docs.hetzner.cloud/#images-delete-an-image
 
@@ -985,12 +931,7 @@ def image_delete(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f image_delete image=my_image
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function image_delete must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1009,9 +950,10 @@ def image_delete(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def image_update(kwargs=None, call=None):
-    '''
+def image_update(kwargs=None):
+    """
     Update an image
     https://docs.hetzner.cloud/#images-update-an-image
 
@@ -1032,12 +974,7 @@ def image_update(kwargs=None, call=None):
         type=snapshot \
         description='Updated description' \
         labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function image_update must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1064,9 +1001,10 @@ def image_update(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_add_route(kwargs=None, call=None):
-    '''
+def network_add_route(kwargs=None):
+    """
     Add route to network
     https://docs.hetzner.cloud/#network-actions-add-a-route-to-a-network
 
@@ -1081,12 +1019,7 @@ def network_add_route(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_add_route network=my_network destination='10.100.1.0/24' gateway='10.0.1.1'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_add_route must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1121,9 +1054,10 @@ def network_add_route(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_add_subnet(kwargs=None, call=None):
-    '''
+def network_add_subnet(kwargs=None):
+    """
     Add subnet to network
     https://docs.hetzner.cloud/#network-actions-add-a-subnet-to-a-network
 
@@ -1140,12 +1074,7 @@ def network_add_subnet(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_add_subnet network=my_network type=server ip_range='10.0.1.0/24' network_zone='eu-central'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_add_subnet must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1178,9 +1107,10 @@ def network_add_subnet(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_change_ip_range(kwargs=None, call=None):
-    '''
+def network_change_ip_range(kwargs=None):
+    """
     Change the ip range of a network
     https://docs.hetzner.cloud/#network-actions-change-ip-range-of-a-network
 
@@ -1193,12 +1123,7 @@ def network_change_ip_range(kwargs=None, call=None):
 
     .. code-block::bash
         salt-cloud -f network_change_ip_range network=my_network ip_range='10.0.0.0/12'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_change_ip_range must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1225,9 +1150,10 @@ def network_change_ip_range(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_change_protection(kwargs=None, call=None):
-    '''
+def network_change_protection(kwargs=None):
+    """
     Change the protection configuration of a network
     https://docs.hetzner.cloud/#network-actions-change-network-protection
 
@@ -1240,12 +1166,7 @@ def network_change_protection(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network=my_network delete=True
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_change_protection must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1268,9 +1189,10 @@ def network_change_protection(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_create(kwargs=None, call=None):
-    '''
+def network_create(kwargs=None):
+    """
     Create a network
     https://docs.hetzner.cloud/#networks-create-a-network
     To add subnets and routes like shown in the documentation, use network_add_route and network_add_subnet functions
@@ -1286,12 +1208,7 @@ def network_create(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_create name=my_network ip_range='10.0.0.0/16' labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_create must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1322,9 +1239,10 @@ def network_create(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_delete(kwargs=None, call=None):
-    '''
+def network_delete(kwargs=None):
+    """
     Delete a network
     https://docs.hetzner.cloud/#networks-delete-a-network
 
@@ -1335,12 +1253,7 @@ def network_delete(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_delete network=my_network
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_delete must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1359,9 +1272,10 @@ def network_delete(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_delete_route(kwargs=None, call=None):
-    '''
+def network_delete_route(kwargs=None):
+    """
     Delete a route entry from a network
     https://docs.hetzner.cloud/#network-actions-delete-a-route-from-a-network
 
@@ -1376,12 +1290,7 @@ def network_delete_route(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_delete_route network=my_network destination='10.100.1.0/24' gateway='10.0.1.1'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_delete_route must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1416,9 +1325,10 @@ def network_delete_route(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_delete_subnet(kwargs=None, call=None):
-    '''
+def network_delete_subnet(kwargs=None):
+    """
     Delete a subnet from a network, works only if no servers are attached to the subnet
     https://docs.hetzner.cloud/#network-actions-delete-a-subnet-from-a-network
 
@@ -1431,12 +1341,7 @@ def network_delete_subnet(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_delete_subnet network=my_network ip_range='10.0.1.0/24'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_delete_subnet must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1465,9 +1370,10 @@ def network_delete_subnet(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def network_update(kwargs=None, call=None):
-    '''
+def network_update(kwargs=None):
+    """
     Update network properties
     https://docs.hetzner.cloud/#networks-update-a-network
 
@@ -1482,12 +1388,7 @@ def network_update(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f network_update network=my_network name=my_new_network labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function network_update must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1511,9 +1412,10 @@ def network_update(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def ssh_key_create(kwargs=None, call=None):
-    '''
+def ssh_key_create(kwargs=None):
+    """
     Create a ssh key
     https://docs.hetzner.cloud/#ssh-keys-create-an-ssh-key
 
@@ -1531,12 +1433,7 @@ def ssh_key_create(kwargs=None, call=None):
             name=my_ssh_key \
             public_key='ssh-rsa ... test@localhost' \
             labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function ssh_key_create must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1565,9 +1462,10 @@ def ssh_key_create(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def ssh_key_update(kwargs=None, call=None):
-    '''
+def ssh_key_update(kwargs=None):
+    """
     Update a ssh key
     https://docs.hetzner.cloud/#ssh-keys-update-an-ssh-key
 
@@ -1585,12 +1483,7 @@ def ssh_key_update(kwargs=None, call=None):
             ssh_key=my_ssh_key \
             name=my_updated_ssh_key \
             labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function ssh_key_update must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1611,9 +1504,10 @@ def ssh_key_update(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def ssh_key_delete(kwargs=None, call=None):
-    '''
+def ssh_key_delete(kwargs=None):
+    """
     Delete a ssh key
     https://docs.hetzner.cloud/#ssh-keys-delete-an-ssh-key
 
@@ -1624,12 +1518,7 @@ def ssh_key_delete(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f ssh_key_delete ssh_key=my_ssh_key
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function ssh_key_delete must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1644,9 +1533,10 @@ def ssh_key_delete(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def volume_change_protection(kwargs=None, call=None):
-    '''
+def volume_change_protection(kwargs=None):
+    """
     Change protection state of a volume
     https://docs.hetzner.cloud/#volume-actions-change-volume-protection
 
@@ -1659,12 +1549,7 @@ def volume_change_protection(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f volume_change_protection volume=my_volume delete=True
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function volume_change_protection must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1683,9 +1568,10 @@ def volume_change_protection(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def volume_create(kwargs=None, call=None):
-    '''
+def volume_create(kwargs=None):
+    """
     Create a new volume
     https://docs.hetzner.cloud/#volumes-create-a-volume
 
@@ -1714,12 +1600,7 @@ def volume_create(kwargs=None, call=None):
             server=my_instance \
             automount=True \
             format=ext4
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function volume_create must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1765,9 +1646,10 @@ def volume_create(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def volume_delete(kwargs=None, call=None):
-    '''
+def volume_delete(kwargs=None):
+    """
     Delete a volume
     https://docs.hetzner.cloud/#volumes-delete-a-volume
 
@@ -1778,12 +1660,7 @@ def volume_delete(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f volume_delete volume=my_volume
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function volume_delete must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1798,9 +1675,10 @@ def volume_delete(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def volume_detach(kwargs=None, call=None):
-    '''
+def volume_detach(kwargs=None):
+    """
     Detach a volume
     https://docs.hetzner.cloud/#volume-actions-detach-volume
 
@@ -1811,12 +1689,7 @@ def volume_detach(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f volume_detach volume=my_volume
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function volume_detach must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1833,9 +1706,10 @@ def volume_detach(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def volume_resize(kwargs=None, call=None):
-    '''
+def volume_resize(kwargs=None):
+    """
     Resize a volume
     https://docs.hetzner.cloud/#volume-actions-resize-volume
 
@@ -1848,12 +1722,7 @@ def volume_resize(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f volume_resize volume=my_volume size=11
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function volume_resize must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1872,9 +1741,10 @@ def volume_resize(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def volume_update(kwargs=None, call=None):
-    '''
+def volume_update(kwargs=None):
+    """
     Update a volume
     https://docs.hetzner.cloud/#volumes-update-a-volume
 
@@ -1889,12 +1759,7 @@ def volume_update(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f volume_update volume=my_volume name=my_updated_volume labels=key1:value1,key2:value2
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function volume_update must be called with -f or --function'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1912,9 +1777,10 @@ def volume_update(kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def enable_rescue_mode(name, kwargs=None, call=None):
-    '''
+def enable_rescue_mode(name, kwargs=None):
+    """
     Enable the hetzner rescue system, which starts a minimal linux distribution on next boot to repair or reinstall
     a server. It is automatically disabled when you first boot into it or do not use it for 60 minutes.
     https://docs.hetzner.cloud/#server-actions-enable-rescue-mode-for-a-server
@@ -1928,12 +1794,7 @@ def enable_rescue_mode(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a enable_rescue_mode my_instance type=linux64 ssh_keys=1,2,3
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action enable_rescue_mode must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -1959,9 +1820,10 @@ def enable_rescue_mode(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def disable_rescue_mode(name, kwargs=None, call=None):
-    '''
+def disable_rescue_mode(name):
+    """
     Disable the hetzner rescue system on an instance
     https://docs.hetzner.cloud/#server-actions-disable-rescue-mode-for-a-server
 
@@ -1969,16 +1831,8 @@ def disable_rescue_mode(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a disable_rescue_mode my_instance
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action disable_rescue_mode must be called with -a or --action'
-        )
-
+    """
     ret = {}
-
-    if kwargs is None:
-        kwargs = {}
 
     disable_rescue_mode_action = _hcloud_wait_for_action(
         hcloud_client.servers.disable_rescue(
@@ -1991,9 +1845,10 @@ def disable_rescue_mode(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def create_image(name, kwargs=None, call=None):
-    '''
+def create_image(name, kwargs=None):
+    """
     Create an image of a server by copying the contents of its disks.
     https://docs.hetzner.cloud/#server-actions-create-image-from-a-server
 
@@ -2008,12 +1863,7 @@ def create_image(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a create_image my_instance description='My Snapshot' type='snapshot' labels=key1:value1,key2:value2
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action create_image must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2039,9 +1889,10 @@ def create_image(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def change_type(name, kwargs=None, call=None):
-    '''
+def change_type(name, kwargs=None):
+    """
     Change the type of a server
     https://docs.hetzner.cloud/#server-actions-change-the-type-of-a-server
 
@@ -2054,12 +1905,7 @@ def change_type(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a change_type my_instance upgrade_disk=False server_type='cx21'
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action change_type must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2079,7 +1925,7 @@ def change_type(name, kwargs=None, call=None):
     change_type_action = _hcloud_wait_for_action(
         hcloud_client.servers.change_type(
             hcloud_client.servers.get_by_name(name),
-            server_type=hcloud_client.server_types.get_by_name(kwargs.get('server_type')),
+            server_type=server_type,
             upgrade_disk=kwargs.get('upgrade_disk')
         )
     )
@@ -2089,9 +1935,10 @@ def change_type(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def enable_backup(name, kwargs=None, call=None):
-    '''
+def enable_backup(name):
+    """
     Enable backup for an instance
     https://docs.hetzner.cloud/#server-actions-enable-and-configure-backups-for-a-server
 
@@ -2099,16 +1946,8 @@ def enable_backup(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a enable_backup my_instance
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action enable_backup must be called with -a or --action'
-        )
-
+    """
     ret = {}
-
-    if kwargs is None:
-        kwargs = {}
 
     enable_backup_action = _hcloud_wait_for_action(
         hcloud_client.servers.enable_backup(
@@ -2121,9 +1960,10 @@ def enable_backup(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def disable_backup(name, kwargs=None, call=None):
-    '''
+def disable_backup(name):
+    """
     Disable backup for an instance
     https://docs.hetzner.cloud/#server-actions-disable-backups-for-a-server
 
@@ -2131,16 +1971,8 @@ def disable_backup(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a disable_backup my_instance
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action disable_backup must be called with -a or --action'
-        )
-
+    """
     ret = {}
-
-    if kwargs is None:
-        kwargs = {}
 
     disable_backup_action = _hcloud_wait_for_action(
         hcloud_client.servers.disable_backup(
@@ -2153,9 +1985,10 @@ def disable_backup(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def avail_isos(kwargs=None, call=None):
-    '''
+def avail_isos(kwargs=None):
+    """
     Return all available ISO objects
     https://docs.hetzner.cloud/#isos-get-all-isos
 
@@ -2166,12 +1999,7 @@ def avail_isos(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f avail_isos name='filter'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function avail_isos must be called with -f or --function'
-        )
-
+    """
     if kwargs is None:
         kwargs = {}
 
@@ -2187,9 +2015,10 @@ def avail_isos(kwargs=None, call=None):
     return isos
 
 
+@saltcloud_function
 @hcloud_api
-def attach_iso(name, kwargs=None, call=None):
-    '''
+def attach_iso(name, kwargs=None):
+    """
     Attach an ISO to an instance
     https://docs.hetzner.cloud/#server-actions-attach-an-iso-to-a-server
 
@@ -2200,12 +2029,7 @@ def attach_iso(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a attach_iso my_instance iso=my_iso
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action attach_iso must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2224,9 +2048,10 @@ def attach_iso(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def detach_iso(name, kwargs=None, call=None):
-    '''
+def detach_iso(name):
+    """
     Detach an ISO from an instance
     https://docs.hetzner.cloud/#server-actions-detach-an-iso-from-a-server
 
@@ -2234,16 +2059,8 @@ def detach_iso(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f detach_iso my_instance
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action detach_iso must be called with -a or --action'
-        )
-
+    """
     ret = {}
-
-    if kwargs is None:
-        kwargs = {}
 
     server = hcloud_client.servers.get_by_name(name)
 
@@ -2256,9 +2073,10 @@ def detach_iso(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def change_dns_ptr(name, kwargs=None, call=None):
-    '''
+def change_dns_ptr(name, kwargs=None):
+    """
     Change reverse DNS entry for an instance
     https://docs.hetzner.cloud/#server-actions-change-reverse-dns-entry-for-this-server
 
@@ -2271,12 +2089,7 @@ def change_dns_ptr(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a change_dns_ptr my_instance ip='1.2.3.4' dns_ptr='server01.example.com'
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action change_dns_ptr must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2302,9 +2115,10 @@ def change_dns_ptr(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def change_protection(name, kwargs=None, call=None):
-    '''
+def change_protection(name, kwargs=None):
+    """
     Change protection configuration of an instances
     https://docs.hetzner.cloud/#server-actions-change-server-protection
 
@@ -2317,12 +2131,7 @@ def change_protection(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a change_protection my_instance delete=True rebuild=True
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action change_protection must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2342,9 +2151,10 @@ def change_protection(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def request_console(name, kwargs=None, call=None):
-    '''
+def request_console(name):
+    """
     Request console for an instance
     https://docs.hetzner.cloud/#server-actions-request-console-for-a-server
 
@@ -2352,16 +2162,8 @@ def request_console(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a request_console my_instance
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action request_console must be called with -a or --action'
-        )
-
+    """
     ret = {}
-
-    if kwargs is None:
-        kwargs = {}
 
     server = hcloud_client.servers.get_by_name(name)
 
@@ -2382,9 +2184,10 @@ def request_console(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_function
 @hcloud_api
-def avail_networks(kwargs=None, call=None):
-    '''
+def avail_networks(kwargs=None):
+    """
     Return all available networks
     https://docs.hetzner.cloud/#networks-get-all-networks
 
@@ -2397,12 +2200,7 @@ def avail_networks(kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -f avail_networks name='filter' label_selector='label_filter'
-    '''
-    if call == 'action':
-        raise SaltCloudException(
-            'The function avail_networks must be called with -f or --function'
-        )
-
+    """
     if kwargs is None:
         kwargs = {}
 
@@ -2414,9 +2212,10 @@ def avail_networks(kwargs=None, call=None):
     return [_hcloud_format_network(network) for network in networks]
 
 
+@saltcloud_action
 @hcloud_api
-def attach_to_network(name, kwargs=None, call=None):
-    '''
+def attach_to_network(name, kwargs=None):
+    """
     Attach a server to a network
     https://docs.hetzner.cloud/#server-actions-attach-a-server-to-a-network
 
@@ -2431,12 +2230,7 @@ def attach_to_network(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a attach_to_network my_instance network=my_network ip='10.0.1.1' alias_ips='10.0.1.2,10.0.1.3'
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action attach_to_network must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2460,9 +2254,10 @@ def attach_to_network(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def detach_from_network(name, kwargs=None, call=None):
-    '''
+def detach_from_network(name, kwargs=None):
+    """
     Detach a network from an instance
     https://docs.hetzner.cloud/#server-actions-detach-a-server-from-a-network
 
@@ -2473,12 +2268,7 @@ def detach_from_network(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a detach_from_network my_instance network=my_network
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action detach_from_network must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2496,9 +2286,10 @@ def detach_from_network(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def change_alias_ips(name, kwargs=None, call=None):
-    '''
+def change_alias_ips(name, kwargs=None):
+    """
     Change alias ips of a network attached on an instance
     https://docs.hetzner.cloud/#server-actions-change-alias-ips-of-a-network
 
@@ -2511,12 +2302,7 @@ def change_alias_ips(name, kwargs=None, call=None):
 
     .. code-block:: bash
         salt-cloud -a change_alias_ips my_instance network=my_network alias_ips='10.0.2.2,10.0.2.3'
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action change_alias_ips must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2542,8 +2328,9 @@ def change_alias_ips(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def assign_floating_ip(name, kwargs=None, call=None):
+def assign_floating_ip(name, kwargs=None):
     '''
     Assign a floating ip to a server
     https://docs.hetzner.cloud/#floating-ip-actions-assign-a-floating-ip-to-a-server
@@ -2556,11 +2343,6 @@ def assign_floating_ip(name, kwargs=None, call=None):
     .. code-block:: bash
         salt-cloud -a assign_floating_ip my_instance floating_ip=my_floating_ip
     '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action assign_floating_ip must be called with -a or --action'
-        )
-
     ret = {}
 
     if kwargs is None:
@@ -2586,9 +2368,10 @@ def assign_floating_ip(name, kwargs=None, call=None):
     return ret
 
 
+@saltcloud_action
 @hcloud_api
-def attach_volume(name, kwargs=None, call=None):
-    '''
+def attach_volume(name, kwargs=None):
+    """
     Attach volume to a server
     https://docs.hetzner.cloud/#volume-actions-attach-volume-to-a-server
 
@@ -2601,12 +2384,7 @@ def attach_volume(name, kwargs=None, call=None):
 
     .. code-block::bash
         salt-cloud -a attach_volume my_instance volume=my_volume automount=True
-    '''
-    if call == 'function':
-        raise SaltCloudException(
-            'The action attach_volume must be called with -a or --action'
-        )
-
+    """
     ret = {}
 
     if kwargs is None:
@@ -2629,6 +2407,7 @@ def attach_volume(name, kwargs=None, call=None):
     ret.update(_hcloud_format_action(attach_volume_action))
 
     return ret
+
 
 def _hcloud_get_model_by_id_or_name(api, kwargs, kwarg_name, optional=False):
     id_or_name = kwargs.get(kwarg_name)
@@ -2666,7 +2445,7 @@ def _hcloud_find_matching_ssh_pub_key(local_ssh_public_key):
     return matching_pub_key
 
 
-def _hcloud_wait_for_action(action: Action):
+def _hcloud_wait_for_action(action):
     while action.status == 'running':
         action = hcloud_client.actions.get_by_id(action.id)
         log.info('Progress: {0:3d}%'.format(action.progress))
@@ -2674,7 +2453,7 @@ def _hcloud_wait_for_action(action: Action):
     return action
 
 
-def _hcloud_format_location(location: Location):
+def _hcloud_format_location(location):
     formatted_location = {
         'id': location.id,
         'name': location.name,
@@ -2689,7 +2468,7 @@ def _hcloud_format_location(location: Location):
     return formatted_location
 
 
-def _hcloud_format_datacenter(datacenter: Datacenter):
+def _hcloud_format_datacenter(datacenter):
     formatted_datacenter = {
         'id': datacenter.id,
         'name': datacenter.name,
@@ -2706,7 +2485,7 @@ def _hcloud_format_datacenter(datacenter: Datacenter):
     return formatted_datacenter
 
 
-def _hcloud_format_action(action: Action):
+def _hcloud_format_action(action):
     salt_dict = {
         'command': action.command,
         'resources': action.resources,
@@ -2721,7 +2500,7 @@ def _hcloud_format_action(action: Action):
     return salt_dict
 
 
-def _hcloud_format_server(server: Server, full=False):
+def _hcloud_format_server(server, full=False):
     server_salt = {
         'id': server.id,
         'size': server.server_type.name,
@@ -2765,7 +2544,7 @@ def _hcloud_format_server(server: Server, full=False):
     return server_salt
 
 
-def _get_formatted_bytes_string(bytes: int):
+def _get_formatted_bytes_string(bytes):
     # yotta (10^24) should be big enough for now
     units = ['', 'k', 'M', 'G', 'T', 'P', 'Z', 'Y']
 
@@ -2779,7 +2558,7 @@ def _get_formatted_bytes_string(bytes: int):
     return '{0:.3f} {1}B'.format(shrinked_bytes, units[shrink_times])
 
 
-def _hcloud_format_image(image: Image):
+def _hcloud_format_image(image):
     # TODO: Show more information as of
     #  https://hcloud-python.readthedocs.io/en/latest/api.clients.images.html#hcloud.images.domain.Image
     formatted_image = {
@@ -2792,7 +2571,7 @@ def _hcloud_format_image(image: Image):
     return formatted_image
 
 
-def _hcloud_format_server_type(size: ServerType):
+def _hcloud_format_server_type(size):
     formatted_server_type = {
         'id': size.id,
         'name': size.name,
@@ -2815,7 +2594,7 @@ def _hcloud_format_server_type(size: ServerType):
     return formatted_server_type
 
 
-def _hcloud_format_iso(iso: Iso):
+def _hcloud_format_iso(iso):
     formatted_iso = {
         'id': iso.id,
         'name': iso.name,
@@ -2827,7 +2606,7 @@ def _hcloud_format_iso(iso: Iso):
     return formatted_iso
 
 
-def _hcloud_format_ssh_keys(ssh_key: SSHKey):
+def _hcloud_format_ssh_keys(ssh_key):
     formatted_ssh_key = {
         'id': ssh_key.id,
         'name': ssh_key.name,
@@ -2840,8 +2619,8 @@ def _hcloud_format_ssh_keys(ssh_key: SSHKey):
     return formatted_ssh_key
 
 
-def _hcloud_format_network(network: Network):
-    def _format_networksubnet(networksubnet: NetworkSubnet):
+def _hcloud_format_network(network):
+    def _format_networksubnet(networksubnet):
         formatted_networksubnet = {
             'type': networksubnet.type,
             'ip_range': networksubnet.ip_range,
@@ -2851,7 +2630,7 @@ def _hcloud_format_network(network: Network):
 
         return formatted_networksubnet
 
-    def _format_networkroute(networkroute: NetworkRoute):
+    def _format_networkroute(networkroute):
         formatted_networkroute = {
             'destination': networkroute.destination,
             'gateway': networkroute.gateway
@@ -2873,7 +2652,7 @@ def _hcloud_format_network(network: Network):
     return formatted_network
 
 
-def _hcloud_format_floating_ip(floating_ip: FloatingIP):
+def _hcloud_format_floating_ip(floating_ip):
     formatted_floating_ip = {
         'id': floating_ip.id,
         'description': floating_ip.description,
@@ -2892,7 +2671,7 @@ def _hcloud_format_floating_ip(floating_ip: FloatingIP):
     return formatted_floating_ip
 
 
-def _hcloud_format_volume(volume: Volume):
+def _hcloud_format_volume(volume):
     formatted_volume = {
         'id': volume.id,
         'name': volume.name,
