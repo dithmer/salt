@@ -153,7 +153,7 @@ def auth(nodes, pcsuser="hacluster", pcspasswd="hacluster", extra_args=None):
 
         salt '*' pcs.auth nodes='[ node1.example.org node2.example.org ]' pcsuser=hacluster pcspasswd=hoonetorg extra_args="[ '--force' ]"
     """
-    cmd = ["pcs", "cluster", "auth"]
+    cmd = ["pcs", "host", "auth"]
 
     if pcsuser:
         cmd += ["-u", pcsuser]
@@ -166,27 +166,6 @@ def auth(nodes, pcsuser="hacluster", pcspasswd="hacluster", extra_args=None):
     cmd += nodes
 
     return __salt__["cmd.run_all"](cmd, output_loglevel="trace", python_shell=False)
-
-
-def is_auth(nodes):
-    """
-    Check if nodes are already authorized
-
-    nodes
-        a list of nodes to be checked for authorization to the cluster
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' pcs.is_auth nodes='[node1.example.org node2.example.org]'
-    """
-    cmd = ["pcs", "cluster", "auth"]
-    cmd += nodes
-
-    return __salt__["cmd.run_all"](
-        cmd, stdin="\n\n", output_loglevel="trace", python_shell=False
-    )
 
 
 def cluster_setup(nodes, pcsclustername="pcscluster", extra_args=None):
@@ -208,7 +187,7 @@ def cluster_setup(nodes, pcsclustername="pcscluster", extra_args=None):
     """
     cmd = ["pcs", "cluster", "setup"]
 
-    cmd += ["--name", pcsclustername]
+    cmd += pcsclustername
 
     cmd += nodes
     if isinstance(extra_args, (list, tuple)):

@@ -401,37 +401,12 @@ def auth(name, nodes, pcsuser="hacluster", pcspasswd="hacluster", extra_args=Non
     """
 
     ret = {"name": name, "result": True, "comment": "", "changes": {}}
-    auth_required = False
-
-    authorized = __salt__["pcs.is_auth"](nodes=nodes)
-    log.trace("Output of pcs.is_auth: %s", authorized)
-
-    authorized_dict = {}
-    for line in authorized["stdout"].splitlines():
-        node = line.split(":")[0].strip()
-        auth_state = line.split(":")[1].strip()
-        if node in nodes:
-            authorized_dict.update({node: auth_state})
-    log.trace("authorized_dict: %s", authorized_dict)
-
-    for node in nodes:
-        if node in authorized_dict and authorized_dict[node] == "Already authorized":
-            ret["comment"] += "Node {0} is already authorized\n".format(node)
-        else:
-            auth_required = True
-            if __opts__["test"]:
-                ret["comment"] += "Node is set to authorize: {0}\n".format(node)
-
-    if not auth_required:
-        return ret
 
     if __opts__["test"]:
         ret["result"] = None
         return ret
     if not isinstance(extra_args, (list, tuple)):
         extra_args = []
-    if "--force" not in extra_args:
-        extra_args += ["--force"]
 
     authorize = __salt__["pcs.auth"](
         nodes=nodes, pcsuser=pcsuser, pcspasswd=pcspasswd, extra_args=extra_args
@@ -452,12 +427,6 @@ def auth(name, nodes, pcsuser="hacluster", pcspasswd="hacluster", extra_args=Non
             ret["changes"].update({node: {"old": "", "new": "Authorized"}})
         else:
             ret["result"] = False
-            if node in authorized_dict:
-                ret[
-                    "comment"
-                ] += "Authorization check for node {0} returned: {1}\n".format(
-                    node, authorized_dict[node]
-                )
             if node in authorize_dict:
                 ret["comment"] += "Failed to authorize {0} with error {1}\n".format(
                     node, authorize_dict[node]
