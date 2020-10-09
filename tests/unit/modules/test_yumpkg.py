@@ -1,19 +1,11 @@
-# -*- coding: utf-8 -*-
-
-# Import Python Libs
-from __future__ import absolute_import, print_function, unicode_literals
-
 import os
 
+import salt.modules.cmdmod as cmdmod
 import salt.modules.pkg_resource as pkg_resource
 import salt.modules.rpm_lowpkg as rpm
 import salt.modules.yumpkg as yumpkg
-
-# Import Salt libs
+import salt.utils.platform
 from salt.exceptions import CommandExecutionError
-from salt.ext import six
-
-# Import Salt Testing Libs
 from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.mock import MagicMock, Mock, patch
 from tests.support.unit import TestCase, skipIf
@@ -332,10 +324,7 @@ class YumTestCase(TestCase, LoaderModuleMockMixin):
                 ],
             }
             for pkgname, pkginfo in pkgs.items():
-                if six.PY3:
-                    self.assertCountEqual(pkginfo, expected_pkg_list[pkgname])
-                else:
-                    self.assertItemsEqual(pkginfo, expected_pkg_list[pkgname])
+                self.assertCountEqual(pkginfo, expected_pkg_list[pkgname])
 
     def test_list_patches(self):
         """
@@ -632,7 +621,7 @@ class YumTestCase(TestCase, LoaderModuleMockMixin):
                             except AssertionError:
                                 continue
                         else:
-                            self.fail("repo '{0}' not checked".format(repo))
+                            self.fail("repo '{}' not checked".format(repo))
 
     def test_list_upgrades_dnf(self):
         """
@@ -1013,6 +1002,44 @@ class YumTestCase(TestCase, LoaderModuleMockMixin):
                 call = cmd_mock.mock_calls[0][1][0]
                 assert call == expected, call
 
+    @skipIf(not salt.utils.platform.is_linux(), "Only run on Linux")
+    def test_install_error_reporting(self):
+        """
+        Tests that we properly report yum/dnf errors.
+        """
+        name = "foo"
+        old = "8:3.8.12-6.n.el7"
+        new = "9:3.8.12-4.n.el7"
+        list_pkgs_mock = MagicMock(
+            side_effect=lambda **kwargs: {
+                name: [old] if kwargs.get("versions_as_list", False) else old
+            }
+        )
+        salt_mock = {
+            "cmd.run_all": cmdmod.run_all,
+            "lowpkg.version_cmp": rpm.version_cmp,
+            "pkg_resource.parse_targets": MagicMock(
+                return_value=({name: new}, "repository")
+            ),
+        }
+        full_pkg_string = "-".join((name, new[2:]))
+        with patch.object(yumpkg, "list_pkgs", list_pkgs_mock), patch(
+            "salt.utils.systemd.has_scope", MagicMock(return_value=False)
+        ), patch.dict(yumpkg.__salt__, salt_mock), patch.object(
+            yumpkg, "_yum", MagicMock(return_value="cat")
+        ):
+
+            expected = {
+                "changes": {},
+                "errors": [
+                    "cat: invalid option -- 'y'\n"
+                    "Try 'cat --help' for more information."
+                ],
+            }
+            with pytest.raises(CommandExecutionError) as exc_info:
+                yumpkg.install("foo", version=new)
+            assert exc_info.value.info == expected, exc_info.value.info
+
     def test_upgrade_with_options(self):
         with patch.object(yumpkg, "list_pkgs", MagicMock(return_value={})), patch(
             "salt.utils.systemd.has_scope", MagicMock(return_value=False)
@@ -1301,64 +1328,307 @@ class YumTestCase(TestCase, LoaderModuleMockMixin):
             with pytest.raises(CommandExecutionError):
                 yumpkg._get_yum_config()
 
-    def test_group_install(self):
+    def test_group_info(self):
         """
-        Test group_install uses the correct keys from group_info and installs
-        default and mandatory packages.
+        Test yumpkg.group_info parsing
         """
-        groupinfo_output = """
-        Group: Printing Client
-         Group-Id: print-client
-         Description: Tools for printing to a local printer or a remote print server.
+        expected = {
+            "conditional": [],
+            "default": ["qgnomeplatform", "xdg-desktop-portal-gtk"],
+            "description": "GNOME is a highly intuitive and user friendly desktop environment.",
+            "group": "GNOME",
+            "id": "gnome-desktop",
+            "mandatory": [
+                "NetworkManager-libreswan-gnome",
+                "PackageKit-command-not-found",
+                "PackageKit-gtk3-module",
+                "abrt-desktop",
+                "at-spi2-atk",
+                "at-spi2-core",
+                "avahi",
+                "baobab",
+                "caribou",
+                "caribou-gtk2-module",
+                "caribou-gtk3-module",
+                "cheese",
+                "chrome-gnome-shell",
+                "compat-cheese314",
+                "control-center",
+                "dconf",
+                "empathy",
+                "eog",
+                "evince",
+                "evince-nautilus",
+                "file-roller",
+                "file-roller-nautilus",
+                "firewall-config",
+                "firstboot",
+                "fprintd-pam",
+                "gdm",
+                "gedit",
+                "glib-networking",
+                "gnome-bluetooth",
+                "gnome-boxes",
+                "gnome-calculator",
+                "gnome-classic-session",
+                "gnome-clocks",
+                "gnome-color-manager",
+                "gnome-contacts",
+                "gnome-dictionary",
+                "gnome-disk-utility",
+                "gnome-font-viewer",
+                "gnome-getting-started-docs",
+                "gnome-icon-theme",
+                "gnome-icon-theme-extras",
+                "gnome-icon-theme-symbolic",
+                "gnome-initial-setup",
+                "gnome-packagekit",
+                "gnome-packagekit-updater",
+                "gnome-screenshot",
+                "gnome-session",
+                "gnome-session-xsession",
+                "gnome-settings-daemon",
+                "gnome-shell",
+                "gnome-software",
+                "gnome-system-log",
+                "gnome-system-monitor",
+                "gnome-terminal",
+                "gnome-terminal-nautilus",
+                "gnome-themes-standard",
+                "gnome-tweak-tool",
+                "gnome-user-docs",
+                "gnome-weather",
+                "gucharmap",
+                "gvfs-afc",
+                "gvfs-afp",
+                "gvfs-archive",
+                "gvfs-fuse",
+                "gvfs-goa",
+                "gvfs-gphoto2",
+                "gvfs-mtp",
+                "gvfs-smb",
+                "initial-setup-gui",
+                "libcanberra-gtk2",
+                "libcanberra-gtk3",
+                "libproxy-mozjs",
+                "librsvg2",
+                "libsane-hpaio",
+                "metacity",
+                "mousetweaks",
+                "nautilus",
+                "nautilus-sendto",
+                "nm-connection-editor",
+                "orca",
+                "redhat-access-gui",
+                "sane-backends-drivers-scanners",
+                "seahorse",
+                "setroubleshoot",
+                "sushi",
+                "totem",
+                "totem-nautilus",
+                "vinagre",
+                "vino",
+                "xdg-user-dirs-gtk",
+                "yelp",
+            ],
+            "optional": [
+                "",
+                "alacarte",
+                "dconf-editor",
+                "dvgrab",
+                "fonts-tweak-tool",
+                "gconf-editor",
+                "gedit-plugins",
+                "gnote",
+                "libappindicator-gtk3",
+                "seahorse-nautilus",
+                "seahorse-sharing",
+                "vim-X11",
+                "xguest",
+            ],
+            "type": "package group",
+        }
+        cmd_out = """Group: GNOME
+         Group-Id: gnome-desktop
+         Description: GNOME is a highly intuitive and user friendly desktop environment.
          Mandatory Packages:
-           +cups
-           +cups-pk-helper
-           +enscript
-           +ghostscript-cups
+           =NetworkManager-libreswan-gnome
+           =PackageKit-command-not-found
+           =PackageKit-gtk3-module
+            abrt-desktop
+           =at-spi2-atk
+           =at-spi2-core
+           =avahi
+           =baobab
+           -caribou
+           -caribou-gtk2-module
+           -caribou-gtk3-module
+           =cheese
+           =chrome-gnome-shell
+           =compat-cheese314
+           =control-center
+           =dconf
+           =empathy
+           =eog
+           =evince
+           =evince-nautilus
+           =file-roller
+           =file-roller-nautilus
+           =firewall-config
+           =firstboot
+            fprintd-pam
+           =gdm
+           =gedit
+           =glib-networking
+           =gnome-bluetooth
+           =gnome-boxes
+           =gnome-calculator
+           =gnome-classic-session
+           =gnome-clocks
+           =gnome-color-manager
+           =gnome-contacts
+           =gnome-dictionary
+           =gnome-disk-utility
+           =gnome-font-viewer
+           =gnome-getting-started-docs
+           =gnome-icon-theme
+           =gnome-icon-theme-extras
+           =gnome-icon-theme-symbolic
+           =gnome-initial-setup
+           =gnome-packagekit
+           =gnome-packagekit-updater
+           =gnome-screenshot
+           =gnome-session
+           =gnome-session-xsession
+           =gnome-settings-daemon
+           =gnome-shell
+           =gnome-software
+           =gnome-system-log
+           =gnome-system-monitor
+           =gnome-terminal
+           =gnome-terminal-nautilus
+           =gnome-themes-standard
+           =gnome-tweak-tool
+           =gnome-user-docs
+           =gnome-weather
+           =gucharmap
+           =gvfs-afc
+           =gvfs-afp
+           =gvfs-archive
+           =gvfs-fuse
+           =gvfs-goa
+           =gvfs-gphoto2
+           =gvfs-mtp
+           =gvfs-smb
+            initial-setup-gui
+           =libcanberra-gtk2
+           =libcanberra-gtk3
+           =libproxy-mozjs
+           =librsvg2
+           =libsane-hpaio
+           =metacity
+           =mousetweaks
+           =nautilus
+           =nautilus-sendto
+           =nm-connection-editor
+           =orca
+           -redhat-access-gui
+           =sane-backends-drivers-scanners
+           =seahorse
+           =setroubleshoot
+           =sushi
+           =totem
+           =totem-nautilus
+           =vinagre
+           =vino
+           =xdg-user-dirs-gtk
+           =yelp
          Default Packages:
-           +colord
-           +gutenprint
-           +gutenprint-cups
-           +hpijs
-           +paps
-           +pnm2ppa
-           +python-smbc
-           +system-config-printer
-           +system-config-printer-udev
+           =qgnomeplatform
+           =xdg-desktop-portal-gtk
          Optional Packages:
-           hplip
-           hplip-gui
-           samba-krb5-printing
+           alacarte
+           dconf-editor
+           dvgrab
+           fonts-tweak-tool
+           gconf-editor
+           gedit-plugins
+           gnote
+           libappindicator-gtk3
+           seahorse-nautilus
+           seahorse-sharing
+           vim-X11
+           xguest
         """
-        install = MagicMock()
         with patch.dict(
-            yumpkg.__salt__,
-            {"cmd.run_stdout": MagicMock(return_value=groupinfo_output)},
+            yumpkg.__salt__, {"cmd.run_stdout": MagicMock(return_value=cmd_out)}
         ):
-            with patch.dict(yumpkg.__salt__, {"cmd.run": MagicMock(return_value="")}):
-                with patch.dict(
-                    yumpkg.__salt__,
-                    {"pkg_resource.format_pkg_list": MagicMock(return_value={})},
-                ):
-                    with patch.object(yumpkg, "install", install):
-                        yumpkg.group_install("Printing Client")
-                        install.assert_called_once_with(
-                            pkgs=[
-                                "cups",
-                                "cups-pk-helper",
-                                "enscript",
-                                "ghostscript-cups",
-                                "colord",
-                                "gutenprint",
-                                "gutenprint-cups",
-                                "hpijs",
-                                "paps",
-                                "pnm2ppa",
-                                "python-smbc",
-                                "system-config-printer",
-                                "system-config-printer-udev",
-                            ]
-                        )
+            info = yumpkg.group_info("@gnome-desktop")
+            self.assertDictEqual(info, expected)
+
+    def test_get_repo_with_existent_repo(self):
+        """
+        Test get_repo with an existent repository
+        Expected return is a populated dictionary
+        """
+        repo = "base-source"
+        kwargs = {
+            "baseurl": "http://vault.centos.org/centos/$releasever/os/Source/",
+            "gpgkey": "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7",
+            "name": "CentOS-$releasever - Base Sources",
+            "enabled": True,
+        }
+        parse_repo_file_return = (
+            "",
+            {
+                "base-source": {
+                    "baseurl": "http://vault.centos.org/centos/$releasever/os/Source/",
+                    "gpgkey": "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7",
+                    "name": "CentOS-$releasever - Base Sources",
+                    "enabled": "1",
+                }
+            },
+        )
+        expected = {
+            "baseurl": "http://vault.centos.org/centos/$releasever/os/Source/",
+            "gpgkey": "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7",
+            "name": "CentOS-$releasever - Base Sources",
+            "enabled": "1",
+        }
+        patch_list_repos = patch.object(
+            yumpkg, "list_repos", autospec=True, return_value=LIST_REPOS
+        )
+        patch_parse_repo_file = patch.object(
+            yumpkg,
+            "_parse_repo_file",
+            autospec=True,
+            return_value=parse_repo_file_return,
+        )
+
+        with patch_list_repos, patch_parse_repo_file:
+            ret = yumpkg.get_repo(repo, **kwargs)
+        assert ret == expected, ret
+
+    def test_get_repo_with_non_existent_repo(self):
+        """
+        Test get_repo with an non existent repository
+        Expected return is an empty dictionary
+        """
+        repo = "non-existent-repository"
+        kwargs = {
+            "baseurl": "http://fake.centos.org/centos/$releasever/os/Non-Existent/",
+            "gpgkey": "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7",
+            "name": "CentOS-$releasever - Non-Existent Repository",
+            "enabled": True,
+        }
+        expected = {}
+        patch_list_repos = patch.object(
+            yumpkg, "list_repos", autospec=True, return_value=LIST_REPOS
+        )
+
+        with patch_list_repos:
+            ret = yumpkg.get_repo(repo, **kwargs)
+        assert ret == expected, ret
 
 
 @skipIf(pytest is None, "PyTest is missing")

@@ -1,24 +1,19 @@
-# -*- coding: utf-8 -*-
 """
     :codeauthor: Jayesh Kariya <jayeshk@saltstack.com>
 """
-# Import Python libs
-from __future__ import absolute_import, print_function, unicode_literals
 
 import os
 import tempfile
 import time
 
-# Import Salt Libs
 import salt.config
 import salt.loader
 import salt.states.saltmod as saltmod
 import salt.utils.event
 import salt.utils.jid
+from tests.support.helpers import slowTest
 from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.mock import MagicMock, patch
-
-# Import Salt Testing Libs
 from tests.support.runtests import RUNTIME_VARS
 from tests.support.unit import TestCase
 
@@ -49,6 +44,7 @@ class SaltmodTestCase(TestCase, LoaderModuleMockMixin):
 
     # 'state' function tests: 1
 
+    @slowTest
     def test_state(self):
         """
         Test to invoke a state run on a given target
@@ -195,6 +191,7 @@ class SaltmodTestCase(TestCase, LoaderModuleMockMixin):
 
     # 'function' function tests: 1
 
+    @slowTest
     def test_function(self):
         """
         Test to execute a single module function on a remote
@@ -207,7 +204,7 @@ class SaltmodTestCase(TestCase, LoaderModuleMockMixin):
             "name": name,
             "changes": {},
             "result": None,
-            "comment": "Function state would be executed " "on target {0}".format(tgt),
+            "comment": "Function state would be executed " "on target {}".format(tgt),
         }
 
         with patch.dict(saltmod.__opts__, {"test": True}):
@@ -218,12 +215,34 @@ class SaltmodTestCase(TestCase, LoaderModuleMockMixin):
                 "result": True,
                 "changes": {"out": "highstate", "ret": {tgt: ""}},
                 "comment": "Function ran successfully."
-                " Function state ran on {0}.".format(tgt),
+                " Function state ran on {}.".format(tgt),
             }
         )
         with patch.dict(saltmod.__opts__, {"test": False}):
             mock_ret = {"larry": {"ret": "", "retcode": 0, "failed": False}}
             mock_cmd = MagicMock(return_value=mock_ret)
+            with patch.dict(saltmod.__salt__, {"saltutil.cmd": mock_cmd}):
+                self.assertDictEqual(saltmod.function(name, tgt), ret)
+
+    @slowTest
+    def test_function_when_no_minions_match(self):
+        """
+        Test to execute a single module function on a remote
+        minion via salt or salt-ssh
+        """
+        name = "state"
+        tgt = "larry"
+        mock_ret = {}
+        mock_cmd = MagicMock(return_value=mock_ret)
+
+        ret = {
+            "name": name,
+            "changes": {},
+            "result": False,
+            "comment": "No minions responded",
+        }
+
+        with patch.dict(saltmod.__opts__, {"test": False}):
             with patch.dict(saltmod.__salt__, {"saltutil.cmd": mock_cmd}):
                 self.assertDictEqual(saltmod.function(name, tgt), ret)
 
@@ -240,7 +259,7 @@ class SaltmodTestCase(TestCase, LoaderModuleMockMixin):
 
         ret = {"name": name, "changes": {}, "result": False, "comment": comt}
 
-        class Mockevent(object):
+        class Mockevent:
             """
             Mock event class
             """
@@ -319,6 +338,7 @@ class SaltmodTestCase(TestCase, LoaderModuleMockMixin):
         with patch.dict(saltmod.__salt__, {"saltutil.wheel": wheel_mock}):
             self.assertDictEqual(saltmod.wheel(name), ret)
 
+    @slowTest
     def test_state_ssh(self):
         """
         Test saltmod passes roster to saltutil.cmd

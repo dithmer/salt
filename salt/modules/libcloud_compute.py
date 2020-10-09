@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Apache Libcloud Compute Management
 ==================================
@@ -30,21 +29,16 @@ Clouds include Amazon EC2, Azure, Google GCE, VMware, OpenStack Nova
 # keep lint from choking on _get_conn and _cache_id
 # pylint: disable=E0602
 
-from __future__ import absolute_import, print_function, unicode_literals
 
-# Import Python libs
 import logging
 import os.path
 
-# Import salt libs
 import salt.utils.args
 import salt.utils.compat
-from salt.ext import six
 from salt.utils.versions import LooseVersion as _LooseVersion
 
 log = logging.getLogger(__name__)
 
-# Import third party libs
 REQUIRED_LIBCLOUD_VERSION = "2.0.0"
 try:
     # pylint: disable=unused-import
@@ -69,14 +63,10 @@ def __virtual__():
     """
     if not HAS_LIBCLOUD:
         msg = (
-            "A apache-libcloud library with version at least {0} was not " "found"
+            "A apache-libcloud library with version at least {} was not " "found"
         ).format(REQUIRED_LIBCLOUD_VERSION)
         return (False, msg)
     return True
-
-
-def __init__(opts):
-    salt.utils.compat.pack_dunder(__name__)
 
 
 def _get_driver(profile):
@@ -143,7 +133,7 @@ def list_sizes(profile, location_id=None, **libcloud_kwargs):
     libcloud_kwargs = salt.utils.args.clean_kwargs(**libcloud_kwargs)
     if location_id is not None:
         locations = [loc for loc in conn.list_locations() if loc.id == location_id]
-        if len(locations) == 0:
+        if not locations:
             raise ValueError("Location not found")
         else:
             sizes = conn.list_sizes(location=locations[0], **libcloud_kwargs)
@@ -791,10 +781,10 @@ def _get_by_id(collection, id):
     Get item from a list by the id field
     """
     matches = [item for item in collection if item.id == id]
-    if len(matches) == 0:
+    if not matches:
         raise ValueError("Could not find a matching item")
     elif len(matches) > 1:
-        raise ValueError("The id matched {0} items, not 1".format(len(matches)))
+        raise ValueError("The id matched {} items, not 1".format(len(matches)))
     return matches[0]
 
 
@@ -828,7 +818,7 @@ def _simple_node(node):
     return {
         "id": node.id,
         "name": node.name,
-        "state": six.text_type(node.state),
+        "state": str(node.state),
         "public_ips": node.public_ips,
         "private_ips": node.private_ips,
         "size": _simple_size(node.size) if node.size else {},

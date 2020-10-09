@@ -1,24 +1,18 @@
-# -*- coding: utf-8 -*-
 """
 Tests for the Openstack Cloud Provider
 """
 
-# Import python libs
-from __future__ import absolute_import, print_function, unicode_literals
 
 import logging
 import os
 import shutil
 from time import sleep
 
-# Import Salt Libs
 from salt.config import cloud_config, cloud_providers_config
 from salt.ext.six.moves import range
 from salt.utils.yaml import safe_load
-
-# Import Salt Testing libs
 from tests.support.case import ShellCase
-from tests.support.helpers import expensiveTest, generate_random_name
+from tests.support.helpers import expensiveTest, random_string
 from tests.support.paths import FILES
 from tests.support.runtests import RUNTIME_VARS
 
@@ -31,7 +25,6 @@ log = logging.getLogger(__name__)
 class CloudTest(ShellCase):
     PROVIDER = ""
     REQUIRED_PROVIDER_CONFIG_ITEMS = tuple()
-    TMP_PROVIDER_DIR = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "cloud.providers.d")
     __RE_RUN_DELAY = 30
     __RE_TRIES = 12
 
@@ -41,18 +34,20 @@ class CloudTest(ShellCase):
         Clean the cloud.providers.d tmp directory
         """
         # make sure old provider configs are deleted
-        for i in os.listdir(tmp_dir):
-            os.remove(os.path.join(tmp_dir, i))
+        if not os.path.isdir(tmp_dir):
+            return
+        for fname in os.listdir(tmp_dir):
+            os.remove(os.path.join(tmp_dir, fname))
 
     def query_instances(self):
         """
         Standardize the data returned from a salt-cloud --query
         """
-        return set(
+        return {
             x.strip(": ")
             for x in self.run_cloud("--query")
             if x.lstrip().lower().startswith("cloud-test-")
-        )
+        }
 
     def _instance_exists(self, instance_name=None, query=None):
         """
@@ -119,7 +114,7 @@ class CloudTest(ShellCase):
             instance_name = self.instance_name
         log.debug('Deleting instance "{}"'.format(instance_name))
         delete_str = self.run_cloud(
-            "-d {0} --assume-yes --out=yaml".format(instance_name), timeout=timeout
+            "-d {} --assume-yes --out=yaml".format(instance_name), timeout=timeout
         )
         if delete_str:
             delete = safe_load("\n".join(delete_str))
@@ -161,8 +156,8 @@ class CloudTest(ShellCase):
             # Create the cloud instance name to be used throughout the tests
             subclass = self.__class__.__name__.strip("Test")
             # Use the first three letters of the subclass, fill with '-' if too short
-            self._instance_name = generate_random_name(
-                "cloud-test-{:-<3}-".format(subclass[:3])
+            self._instance_name = random_string(
+                "cloud-test-{:-<3}-".format(subclass[:3]), uppercase=False
             ).lower()
         return self._instance_name
 
@@ -177,7 +172,9 @@ class CloudTest(ShellCase):
         if not hasattr(self, "_provider_config"):
             self._provider_config = cloud_providers_config(
                 os.path.join(
-                    self.config_dir, "cloud.providers.d", self.PROVIDER + ".conf"
+                    RUNTIME_VARS.TMP_CONF_DIR,
+                    "cloud.providers.d",
+                    self.PROVIDER + ".conf",
                 )
             )
         return self._provider_config[self.profile_str][self.PROVIDER]
@@ -187,7 +184,9 @@ class CloudTest(ShellCase):
         if not hasattr(self, "_config"):
             self._config = cloud_config(
                 os.path.join(
-                    self.config_dir, "cloud.profiles.d", self.PROVIDER + ".conf"
+                    RUNTIME_VARS.TMP_CONF_DIR,
+                    "cloud.profiles.d",
+                    self.PROVIDER + ".conf",
                 )
             )
         return self._config
@@ -198,9 +197,9 @@ class CloudTest(ShellCase):
 
     def setUp(self):
         """
-        Sets up the test requirements.  In child classes, define PROVIDER and REQUIRED_CONFIG_ITEMS or this will fail
+        Sets up the test requirements.  In child classes, define PROVIDER and REQUIRED_PROVIDER_CONFIG_ITEMS or this will fail
         """
-        super(CloudTest, self).setUp()
+        super().setUp()
 
         if not self.PROVIDER:
             self.fail("A PROVIDER must be defined for this test")
@@ -224,7 +223,7 @@ class CloudTest(ShellCase):
                 "Conf items are missing that must be provided to run these tests:  {}".format(
                     ", ".join(missing_conf_item)
                 )
-                + "\nCheck tests/integration/files/conf/cloud.providers.d/{0}.conf".format(
+                + "\nCheck tests/integration/files/conf/cloud.providers.d/{}.conf".format(
                     self.PROVIDER
                 )
             )
@@ -322,12 +321,15 @@ class CloudTest(ShellCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.clean_cloud_dir(cls.TMP_PROVIDER_DIR)
+        cls.clean_cloud_dir(cls.tmp_provider_dir)
 
     @classmethod
     def setUpClass(cls):
         # clean up before setup
-        cls.clean_cloud_dir(cls.TMP_PROVIDER_DIR)
+        cls.tmp_provider_dir = os.path.join(
+            RUNTIME_VARS.TMP_CONF_DIR, "cloud.providers.d"
+        )
+        cls.clean_cloud_dir(cls.tmp_provider_dir)
 
         # add the provider config for only the cloud we are testing
         provider_file = cls.PROVIDER + ".conf"
@@ -335,5 +337,5 @@ class CloudTest(ShellCase):
             os.path.join(
                 os.path.join(FILES, "conf", "cloud.providers.d"), provider_file
             ),
-            os.path.join(os.path.join(cls.TMP_PROVIDER_DIR, provider_file)),
+            os.path.join(os.path.join(cls.tmp_provider_dir, provider_file)),
         )
