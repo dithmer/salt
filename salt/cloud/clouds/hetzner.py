@@ -368,7 +368,7 @@ def create(vm_):
         "waiting for ssh",
         "salt/cloud/{}/waiting_for_ssh".format(name),
         sock_dir=__opts__["sock_dir"],
-        args={"ip_address": vm_["ssh_host"]},
+        args={"name": vm_["name"], "ip_address": vm_["ssh_host"]},
         transport=__opts__["transport"],
     )
 
