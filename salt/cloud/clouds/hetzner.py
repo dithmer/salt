@@ -45,8 +45,8 @@ def __virtual__():
     """
     Check for hetzner configurations
     """
-    if get_configured_provider() is False:
-        return False
+    # if get_configured_provider() is False:
+    #    return False
 
     if get_dependencies() is False:
         return False
